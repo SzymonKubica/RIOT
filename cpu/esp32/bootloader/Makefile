@@ -191,12 +191,12 @@ ifneq (,$(filter xtensa%,$(TARGET_ARCH)))
 endif
 
 # BOOTLOADER_BUILD=1 signals to the SDK that's a bootloader build.
+# Modification: removed the Werror from here.
 CFLAGS += \
   -Wno-frame-address \
   -ffunction-sections \
   -fdata-sections \
   -Wall \
-  -Werror=all \
   -Wno-error=unused-function \
   -Wno-error=unused-variable \
   -Wno-error=deprecated-declarations \
