@@ -7,6 +7,7 @@
 
 use riot_wrappers::riot_main;
 use riot_wrappers::println;
+use riot_sys::malloc;
 
 extern crate rust_riotmodules;
 

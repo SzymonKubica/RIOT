@@ -2,6 +2,8 @@
 *.o
 # Target files
 *.elf
+# Rust target files
+target/
 # Documentation artifacts
 doc/doxygen/html
 doc/doxygen/latex
