@@ -25,6 +25,10 @@ coap-message-demos = { git = "https://gitlab.com/chrysn/coap-message-demos/", de
 coap-handler-implementations = "0.4"
 riot-coap-handler-demos = { git = "https://gitlab.com/etonomy/riot-module-examples/", features = [ "vfs" ] }
 riot-shell-commands = { git = "https://gitlab.com/etonomy/riot-module-examples", features = ["ztimer"] }
+cstr = "0.2.1"
+riot-sys = "*"
+embedded-hal = "0.2.2"
+
 
 # While currently this exmple does not use any RIOT modules implemented in
 # Rust, that may change; it is best practice for any RIOT application that has

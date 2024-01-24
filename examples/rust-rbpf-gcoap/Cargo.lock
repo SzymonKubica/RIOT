@@ -597,8 +597,11 @@ version = "0.1.0"
 dependencies = [
  "coap-handler-implementations",
  "coap-message-demos",
+ "cstr",
+ "embedded-hal",
  "riot-coap-handler-demos",
  "riot-shell-commands",
+ "riot-sys",
  "riot-wrappers",
  "rust_riotmodules",
 ]
