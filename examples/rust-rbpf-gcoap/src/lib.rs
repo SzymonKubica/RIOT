@@ -7,7 +7,7 @@
 
 use core::fmt::Write;
 use riot_wrappers::riot_main;
-use riot_wrappers::{gcoap, thread, ztimer, gnrc, mutex::Mutex, stdio::println};
+use riot_wrappers::{gcoap, thread, ztimer, gnrc, mutex::Mutex, stdio::println, riot_sys};
 use riot_wrappers::shell::CommandList;
 use riot_wrappers::cstr::cstr;
 use embedded_nal::UdpClientStack;
@@ -34,7 +34,7 @@ fn main() {
     // One can either allocate the stack for the new thread statically (and ensure via a mutex that
     // it's only used once), or...
     let mut secondthread_stacklock = SECONDTHREAD_STACK.lock();
-    let mut gcoapthread_mainclosure = || gcoap_server_thread_main(&countdown).unwrap();
+    let mut gcoapthread_mainclosure = || gcoap_server_thread_main_2(&countdown).unwrap();
 
     // ... or plainly allocate it on another thread's stack. In both cases, usually, the
     // spawning thread must outlive the child. (In the former, there might be the option to move
@@ -82,13 +82,25 @@ fn main() {
     unreachable!();
 }
 
-/*
-fn gcoap_server_thread_main(countdown: &Mutex<u32>) -> Result<(), ()> {
-    let handler = coap_message_demos::full_application_tree(None)
-        .below(&["ps"], riot_coap_handler_demos::ps::ps_tree())
-        .below(&["vfs"], riot_coap_handler_demos::vfs::vfs("/const"))
+pub fn full_application_tree() -> impl coap_handler::Handler + coap_handler::Reporting {
+
+    use coap_handler_implementations::{new_dispatcher, HandlerBuilder, ReportingHandlerBuilder, TypeHandler};
+
+    use coap_handler::Attribute::*;
+
+    let handler = new_dispatcher()
+        .at_with_attributes(&["riot/board"], &[Ct(0), Title("Riot board information")], RiotBoardHandler());
+
+    handler
         .with_wkc()
-        ;
+}
+
+fn gcoap_server_thread_main_2(countdown: &Mutex<u32>) -> Result<(), ()> {
+    let handler = full_application_tree();
+        //.below(&["ps"], riot_coap_handler_demos::ps::ps_tree())
+        //.below(&["vfs"], riot_coap_handler_demos::vfs::vfs("/const"))
+        //.with_wkc()
+        //;
     let mut handler = riot_wrappers::coap_handler::GcoapHandler(handler);
 
     let mut listener = gcoap::SingleHandlerListener::new_catch_all(&mut handler);
@@ -122,7 +134,6 @@ fn gcoap_server_thread_main(countdown: &Mutex<u32>) -> Result<(), ()> {
 
     Ok(())
 }
-*/
 
 /// Thread for the shell CLI
 fn shellthread_main(countdown: &Mutex<u32>) -> Result<(), ()> {
@@ -150,42 +161,13 @@ fn gcoap_server_thread_main(countdown: &Mutex<u32>) -> Result<(), ()>  {
     // Rather than having a single handler, dispatch could be handled by a coap_handler (but then
     // it's not exposed that nicely via .well-known/ocre), or by something better than
     // SingleHandlerListener that builds a non-single listener.
-    let mut boardlistener = gcoap::SingleHandlerListener::new(cstr!("/riot/board"), 1, &mut riot_board_handler);
+    let mut boardlistener = gcoap::SingleHandlerListener::new(cstr!("/riot/board"), riot_sys::COAP_GET, &mut riot_board_handler);
     let mut statslistener = gcoap::SingleHandlerListener::new(cstr!("/cli/stats"), riot_sys::COAP_GET | riot_sys::COAP_PUT, &mut stats_handler);
 
     gcoap::scope(|greg| {
         greg.register(&mut boardlistener);
         greg.register(&mut statslistener);
 
-        /*
-        use embedded_hal::blocking::delay::DelayMs;
-        use riot_wrappers::ztimer;
-        println!("Waiting for server to be ready");
-        ztimer::Clock::msec().delay_ms(3000);
-        println!("Sending request via different (embedded-nal) CoAP (pseudo)stack");
-
-        // Use a completely different CoAP implementation to query loopback...
-        let server_coap = embedded_nal::SocketAddrV6::new(embedded_nal::Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1), 5683, 0, 0);
-        use embedded_nal::UdpClientStack;
-        let mut stack: riot_wrappers::socket_embedded_nal::Stack<1> = riot_wrappers::socket_embedded_nal::Stack::new();
-        stack.run(|mut stack| {
-            let mut sock = stack.socket().unwrap();
-            stack.connect(&mut sock, server_coap.into()).unwrap();
-
-            stack.send(&mut sock, b"\x50\x01\0\0\xbb.well-known\x04core").unwrap();
-            let mut response = [0; 1280];
-            // FIXME: allow a few retries as it's now fully nonblocking
-            let (read, source) = stack.receive(&mut sock, &mut response).unwrap();
-            let response = &response[..read];
-            println!("Got {:?} from {:?}", response, source);
-
-            stack.close(sock).unwrap();
-
-            // Cleanup does not work well yet
-            loop { thread::sleep(); }
-        });
-        */
-        // Not that it'd actually execute, because run doesn't return
         loop { thread::sleep(); }
     })
 }

@@ -141,9 +141,9 @@ dependencies = [
 
 [[package]]
 name = "coap-handler"
-version = "0.1.5"
+version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db834631a5a388596fdbded2b1b08144d504fdbb798455c6d0f335d7d4231a2b"
+checksum = "98a2c21db09a4ce20cdf7153ed88b678f728aa8698109203e7f3087b12628e19"
 dependencies = [
  "byteorder",
  "coap-message",
@@ -624,13 +624,13 @@ dependencies = [
 name = "rust-gcoap"
 version = "0.1.0"
 dependencies = [
+ "coap-handler",
  "coap-handler-implementations",
  "coap-message-demos",
  "embedded-hal",
  "embedded-nal",
  "riot-coap-handler-demos",
  "riot-shell-commands",
- "riot-sys",
  "riot-wrappers",
  "rust_riotmodules",
 ]
