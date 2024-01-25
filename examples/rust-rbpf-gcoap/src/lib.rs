@@ -89,11 +89,16 @@ pub fn full_application_tree() -> impl coap_handler::Handler + coap_handler::Rep
     use coap_handler::Attribute::*;
 
     let handler = new_dispatcher()
-        .at_with_attributes(&["riot/board"], &[Ct(0), Title("Riot board information")], RiotBoardHandler());
+        .at_with_attributes(&[], &[Ct(0), Title("Landing page")], WELCOME)
+        .at_with_attributes(&["board"], &[Ct(0), Title("Riot board information")], BOARD);
 
     handler
         .with_wkc()
 }
+
+pub static WELCOME: SimpleRendered<&str> = SimpleRendered("Hello CoAP");
+pub static BOARD: SimpleRendered<RiotBoardHandler> = SimpleRendered(RiotBoardHandler);
+
 
 fn gcoap_server_thread_main_2(countdown: &Mutex<u32>) -> Result<(), ()> {
     let handler = full_application_tree();
@@ -155,7 +160,7 @@ fn gcoap_server_thread_main(countdown: &Mutex<u32>) -> Result<(), ()>  {
     // might be a better abstraction
     let req_count = core::cell::Cell::new(0);
 
-    let mut riot_board_handler = riot_wrappers::coap_handler::GcoapHandler(SimpleRendered(RiotBoardHandler()));
+    let mut riot_board_handler = riot_wrappers::coap_handler::GcoapHandler(SimpleRendered(RiotBoardHandler));
     let mut stats_handler = riot_wrappers::coap_handler::GcoapHandler(SimpleRendered(StatsHandler(&req_count)));
 
     // Rather than having a single handler, dispatch could be handled by a coap_handler (but then
@@ -172,7 +177,8 @@ fn gcoap_server_thread_main(countdown: &Mutex<u32>) -> Result<(), ()>  {
     })
 }
 
-struct RiotBoardHandler();
+#[derive(Copy, Clone)]
+struct RiotBoardHandler;
 impl coap_handler_implementations::SimpleRenderable for RiotBoardHandler {
     fn render<W: core::fmt::Write>(&mut self, writer: &mut W) {
         println!("Request for the riot board name received");
@@ -184,6 +190,10 @@ impl coap_handler_implementations::SimpleRenderable for RiotBoardHandler {
         // Compared to the C example, there is no "message too small" error case as
         // SimpleRenderable would use block-wise transfer in such cases.
     }
+        fn content_format(&self) -> Option<u16> {
+        Some(0 /* text/plain */)
+    }
+
 }
 
 // PUT is missing, would need a more manual implementation or an extension to SimpleRenderable that
