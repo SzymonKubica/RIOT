@@ -9,11 +9,12 @@ use core::fmt::Write;
 use riot_wrappers::riot_main;
 use riot_wrappers::{gcoap, thread, ztimer, gnrc, mutex::Mutex, stdio::println};
 use riot_wrappers::shell::CommandList;
-use cstr::cstr;
+use riot_wrappers::cstr::cstr;
+use embedded_nal::UdpClientStack;
 
-use coap_handler_implementations::{ReportingHandlerBuilder, HandlerBuilder};
+use coap_handler_implementations::SimpleRendered;
 
-static SECONDTHREAD_STACK: Mutex<[u8; 2048]> = Mutex::new([0; 2048]);
+static SECONDTHREAD_STACK: Mutex<[u8; 16384]> = Mutex::new([0; 16384]);
 
 extern crate rust_riotmodules;
 
@@ -81,6 +82,7 @@ fn main() {
     unreachable!();
 }
 
+/*
 fn gcoap_server_thread_main(countdown: &Mutex<u32>) -> Result<(), ()> {
     let handler = coap_message_demos::full_application_tree(None)
         .below(&["ps"], riot_coap_handler_demos::ps::ps_tree())
@@ -120,6 +122,7 @@ fn gcoap_server_thread_main(countdown: &Mutex<u32>) -> Result<(), ()> {
 
     Ok(())
 }
+*/
 
 /// Thread for the shell CLI
 fn shellthread_main(countdown: &Mutex<u32>) -> Result<(), ()> {
@@ -133,3 +136,80 @@ fn shellthread_main(countdown: &Mutex<u32>) -> Result<(), ()> {
     commands.run_forever(&mut line_buf);
     Ok(())
 }
+
+fn gcoap_server_thread_main(countdown: &Mutex<u32>) -> Result<(), ()>  {
+    println!("Preparing CoAP server");
+
+    // FIXME given we're using this in a "One read-modify-writes, others read only" pattern, there
+    // might be a better abstraction
+    let req_count = core::cell::Cell::new(0);
+
+    let mut riot_board_handler = riot_wrappers::coap_handler::GcoapHandler(SimpleRendered(RiotBoardHandler()));
+    let mut stats_handler = riot_wrappers::coap_handler::GcoapHandler(SimpleRendered(StatsHandler(&req_count)));
+
+    // Rather than having a single handler, dispatch could be handled by a coap_handler (but then
+    // it's not exposed that nicely via .well-known/ocre), or by something better than
+    // SingleHandlerListener that builds a non-single listener.
+    let mut boardlistener = gcoap::SingleHandlerListener::new(cstr!("/riot/board"), 1, &mut riot_board_handler);
+    let mut statslistener = gcoap::SingleHandlerListener::new(cstr!("/cli/stats"), riot_sys::COAP_GET | riot_sys::COAP_PUT, &mut stats_handler);
+
+    gcoap::scope(|greg| {
+        greg.register(&mut boardlistener);
+        greg.register(&mut statslistener);
+
+        /*
+        use embedded_hal::blocking::delay::DelayMs;
+        use riot_wrappers::ztimer;
+        println!("Waiting for server to be ready");
+        ztimer::Clock::msec().delay_ms(3000);
+        println!("Sending request via different (embedded-nal) CoAP (pseudo)stack");
+
+        // Use a completely different CoAP implementation to query loopback...
+        let server_coap = embedded_nal::SocketAddrV6::new(embedded_nal::Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1), 5683, 0, 0);
+        use embedded_nal::UdpClientStack;
+        let mut stack: riot_wrappers::socket_embedded_nal::Stack<1> = riot_wrappers::socket_embedded_nal::Stack::new();
+        stack.run(|mut stack| {
+            let mut sock = stack.socket().unwrap();
+            stack.connect(&mut sock, server_coap.into()).unwrap();
+
+            stack.send(&mut sock, b"\x50\x01\0\0\xbb.well-known\x04core").unwrap();
+            let mut response = [0; 1280];
+            // FIXME: allow a few retries as it's now fully nonblocking
+            let (read, source) = stack.receive(&mut sock, &mut response).unwrap();
+            let response = &response[..read];
+            println!("Got {:?} from {:?}", response, source);
+
+            stack.close(sock).unwrap();
+
+            // Cleanup does not work well yet
+            loop { thread::sleep(); }
+        });
+        */
+        // Not that it'd actually execute, because run doesn't return
+        loop { thread::sleep(); }
+    })
+}
+
+struct RiotBoardHandler();
+impl coap_handler_implementations::SimpleRenderable for RiotBoardHandler {
+    fn render<W: core::fmt::Write>(&mut self, writer: &mut W) {
+        println!("Request for the riot board name received");
+        writeln!(writer, "{}",
+                 core::str::from_utf8(riot_sys::RIOT_BOARD)
+                     .expect("Oddly named board crashed CoAP stack")
+            ).unwrap();
+
+        // Compared to the C example, there is no "message too small" error case as
+        // SimpleRenderable would use block-wise transfer in such cases.
+    }
+}
+
+// PUT is missing, would need a more manual implementation or an extension to SimpleRenderable that
+// has some read-able version as well.
+struct StatsHandler<'a>(&'a core::cell::Cell<u32>);
+impl<'a> coap_handler_implementations::SimpleRenderable for StatsHandler<'a> {
+    fn render<W: core::fmt::Write>(&mut self, writer: &mut W) {
+        writeln!(writer, "{}", self.0.get()).unwrap();
+    }
+}
+

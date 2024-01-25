@@ -19,15 +19,15 @@ codegen-units = 1
 opt-level = "s"
 
 [dependencies]
-riot-wrappers = { version = "0.8", features = [ "set_panic_handler", "panic_handler_format", "with_coap_message", "with_coap_handler" ] }
+riot-wrappers = { version = "0.8", features = [ "set_panic_handler", "panic_handler_format", "with_coap_message", "with_coap_handler", "with_embedded_nal" ] }
 
 coap-message-demos = { git = "https://gitlab.com/chrysn/coap-message-demos/", default-features = false }
 coap-handler-implementations = "0.4"
 riot-coap-handler-demos = { git = "https://gitlab.com/etonomy/riot-module-examples/", features = [ "vfs" ] }
 riot-shell-commands = { git = "https://gitlab.com/etonomy/riot-module-examples", features = ["ztimer"] }
-cstr = "0.2.1"
 riot-sys = "*"
 embedded-hal = "0.2.2"
+embedded-nal = "0.6.0"
 
 
 # While currently this exmple does not use any RIOT modules implemented in

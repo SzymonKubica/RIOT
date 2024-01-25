@@ -39,11 +39,12 @@ QUIET ?= 1
 # Add 3k extra stack: The Rust examples take more of it than gcoap expects,
 # presumably because the example use the standard library's sting formatting
 # instead of one of the more optimized formatters.
-CFLAGS += -DGCOAP_STACK_SIZE='(THREAD_STACKSIZE_DEFAULT+DEBUG_EXTRA_STACKSIZE+sizeof(coap_pkt_t)+1024)'
+CFLAGS += -DGCOAP_STACK_SIZE='(THREAD_STACKSIZE_DEFAULT+DEBUG_EXTRA_STACKSIZE+sizeof(coap_pkt_t)+ 16384)'
 
 
 # Need more stack space for shell printf and threading
-CFLAGS += '-DTHREAD_STACKSIZE_MAIN=(THREAD_STACKSIZE_DEFAULT + 7000)'
+# We need more room for two CoAP stacks
+CFLAGS += '-DTHREAD_STACKSIZE_MAIN=(THREAD_STACKSIZE_DEFAULT + 20480)'
 
 # The name of crate (as per Cargo.toml package name, but with '-' replaced with '_')
 APPLICATION_RUST_MODULE = rust_gcoap
