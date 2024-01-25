@@ -626,7 +626,9 @@ version = "0.1.0"
 dependencies = [
  "coap-handler",
  "coap-handler-implementations",
+ "coap-message",
  "coap-message-demos",
+ "coap-numbers",
  "embedded-hal",
  "embedded-nal",
  "riot-coap-handler-demos",
