@@ -20,6 +20,7 @@ opt-level = "s"
 
 [dependencies]
 riot-wrappers = { version = "0.8", features = [ "set_panic_handler", "panic_handler_format", "with_coap_message", "with_coap_handler", "with_embedded_nal" ] }
+riot-sys = { version = "0.7.9" }
 coap-message-demos = { git = "https://gitlab.com/chrysn/coap-message-demos/", default-features = false }
 coap-message = "0.2"
 coap-handler-implementations = "0.4"
@@ -27,6 +28,7 @@ coap-numbers = { version = "*", default-features = false }
 coap-handler = "0.1.6"
 riot-coap-handler-demos = { git = "https://gitlab.com/etonomy/riot-module-examples/", features = [ "vfs" ] }
 riot-shell-commands = { git = "https://gitlab.com/etonomy/riot-module-examples", features = ["ztimer"] }
+rbpf = { path = "lib/rbpf-for-microcontrollers", default-features = false }
 embedded-hal = "0.2.2"
 embedded-nal = "0.6.0"
 

@@ -6,11 +6,13 @@
 #![no_std]
 
 use riot_wrappers::riot_main;
-use riot_wrappers::{mutex::Mutex, riot_sys, stdio::println, thread, ztimer};
+use riot_wrappers::{mutex::Mutex, stdio::println, thread, ztimer};
 use riot_wrappers::cstr::cstr;
 
 mod coap_server;
 mod shell;
+mod handlers;
+mod allocator;
 
 
 // The second thread is running the CoAP network stack, therefore its
@@ -20,6 +22,9 @@ static COAP_THREAD_STACK: Mutex<[u8; 16384]> = Mutex::new([0; 16384]);
 static SHELL_THREAD_STACK: Mutex<[u8; 5120]> = Mutex::new([0; 5120]);
 
 extern crate rust_riotmodules;
+extern crate rbpf;
+extern crate alloc;
+extern crate riot_sys;
 
 riot_main!(main);
 

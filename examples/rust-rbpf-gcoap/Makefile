@@ -21,9 +21,15 @@ USEMODULE += ztimer_sec
 
 USEMODULE += shell
 USEMODULE += shell_cmds_default
+USEMODULE += shell_cmd_suit
 USEMODULE += shell_commands
 USEMODULE += ps
 
+USEMODULE += suit
+USEMODULE += suit_transport_coap
+USEMODULE += suit_storage_ram
+
+USEMODULE += progress_bar
 
 USEMODULE += vfs
 USEMODULE += constfs
@@ -40,6 +46,12 @@ QUIET ?= 1
 # presumably because the example use the standard library's sting formatting
 # instead of one of the more optimized formatters.
 CFLAGS += -DGCOAP_STACK_SIZE='(THREAD_STACKSIZE_DEFAULT+DEBUG_EXTRA_STACKSIZE+sizeof(coap_pkt_t)+ 16384)'
+
+# Default COAP manifest resource location when fetched through gpio trigger
+CFLAGS += -DSUIT_MANIFEST_RESOURCE=\"$(SUIT_COAP_ROOT)/$(SUIT_NOTIFY_MANIFEST)\"
+# 2 Storage regions in RAM with 2K in size
+CFLAGS += -DCONFIG_SUIT_STORAGE_RAM_REGIONS=2 -DCONFIG_SUIT_STORAGE_RAM_SIZE=2048
+
 
 
 # Need more stack space for shell printf and threading

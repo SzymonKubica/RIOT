@@ -4,6 +4,10 @@ use core::convert::TryInto;
 use riot_wrappers::cstr::cstr;
 use riot_wrappers::{gcoap, gnrc, mutex::Mutex, riot_sys, stdio::println, thread, ztimer};
 
+use crate::handlers::handle_riot_board;
+use crate::handlers::handle_console_write;
+use crate::handlers::handle_bytecode_load;
+
 pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
     // Each endpoint needs a request handler defined as its own struct implemneting
     // the Handler trait. Then we need to initialise a listener for that endpoint
@@ -23,18 +27,18 @@ pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
         &mut riot_board_handler,
     );
 
-    let mut static_resource_handler = static_application_tree();
-    let mut static_resource_listener = gcoap::SingleHandlerListener::new(
-        cstr!("/"),
-        riot_sys::COAP_GET,
-        &mut static_resource_handler,
+    let mut bytecode_handler = riot_wrappers::coap_handler::GcoapHandler(handle_bytecode_load());
+    let mut bytecode_listener = gcoap::SingleHandlerListener::new(
+        cstr!("/load"),
+        riot_sys::COAP_POST,
+        &mut bytecode_handler,
     );
 
     gcoap::scope(|greg| {
         // Endpoint handlers are registered here.
         greg.register(&mut console_write_listener);
         greg.register(&mut riot_board_listener);
-        greg.register(&mut static_resource_listener);
+        greg.register(&mut bytecode_listener);
 
         println!(
             "CoAP server ready; waiting for interfaces to settle before reporting addresses..."
@@ -71,84 +75,3 @@ pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
     Ok(())
 }
 
-/// Defines the static resources available on the server
-pub fn static_application_tree() -> impl coap_handler::Handler {
-    use coap_handler_implementations::{new_dispatcher, HandlerBuilder, ReportingHandlerBuilder};
-
-    use coap_handler::Attribute::*;
-
-    let handler =
-        new_dispatcher().at_with_attributes(&[], &[Ct(0), Title("Landing page")], WELCOME);
-
-    handler.with_wkc()
-}
-
-pub static WELCOME: SimpleRendered<&str> = SimpleRendered("Hello CoAP");
-
-struct RiotBoardHandler;
-impl coap_handler::Handler for RiotBoardHandler {
-    type RequestData = u8;
-
-    fn extract_request_data(&mut self, request: &impl ReadableMessage) -> Self::RequestData {
-        if request.code().into() != coap_numbers::code::GET {
-            return coap_numbers::code::METHOD_NOT_ALLOWED;
-        }
-        return coap_numbers::code::VALID;
-    }
-
-    fn estimate_length(&mut self, _request: &Self::RequestData) -> usize {
-        1
-    }
-
-    fn build_response(
-        &mut self,
-        response: &mut impl MutableWritableMessage,
-        request: Self::RequestData,
-    ) {
-        response.set_code(request.try_into().map_err(|_| ()).unwrap());
-        println!("Request for the riot board name received");
-        let board_name = core::str::from_utf8(riot_sys::RIOT_BOARD)
-            .expect("Oddly named board crashed CoAP stack");
-        response.set_payload(board_name.as_bytes());
-    }
-}
-
-pub fn handle_riot_board() -> impl coap_handler::Handler {
-    RiotBoardHandler
-}
-
-struct ConsoleWrite;
-impl coap_handler::Handler for ConsoleWrite {
-    type RequestData = u8;
-
-    fn extract_request_data(&mut self, request: &impl ReadableMessage) -> Self::RequestData {
-        if request.code().into() != coap_numbers::code::POST {
-            return coap_numbers::code::METHOD_NOT_ALLOWED;
-        }
-        match core::str::from_utf8(request.payload()) {
-            Ok(s) => {
-                println!("{}", s);
-                coap_numbers::code::CHANGED
-            }
-            _ => coap_numbers::code::BAD_REQUEST,
-        }
-    }
-
-    fn estimate_length(&mut self, _request: &Self::RequestData) -> usize {
-        1
-    }
-
-    fn build_response(
-        &mut self,
-        response: &mut impl MutableWritableMessage,
-        request: Self::RequestData,
-    ) {
-        response.set_code(request.try_into().map_err(|_| ()).unwrap());
-        let result = "Success";
-        response.set_payload(result.as_bytes());
-    }
-}
-
-pub fn handle_console_write() -> impl coap_handler::Handler {
-    ConsoleWrite
-}
