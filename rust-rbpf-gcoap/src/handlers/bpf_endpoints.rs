@@ -86,6 +86,12 @@ impl coap_handler::Handler for BpfBytecodeLoader {
             println!("Program returned: {:?} ({:#x})", res, res);
             println!("Execution time: {} [us]", end - start);
 
+
+            // Game plan: add endpoint functionality and an extern C function that
+            // will allow for loading the rust rBPF compatible program into one
+            // SUIT storage and the femto container one into the second one
+            // After that benchmark the two.
+
             coap_numbers::code::CHANGED
         } else {
             coap_numbers::code::BAD_REQUEST
