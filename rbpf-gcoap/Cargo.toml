@@ -28,7 +28,7 @@ coap-numbers = { version = "*", default-features = false }
 coap-handler = "0.1.6"
 riot-coap-handler-demos = { git = "https://gitlab.com/etonomy/riot-module-examples/", features = [ "vfs" ] }
 riot-shell-commands = { git = "https://gitlab.com/etonomy/riot-module-examples", features = ["ztimer"] }
-rbpf = { path = "lib/rbpf-for-microcontrollers", default-features = false }
+rbpf = { path = "../../rbpf-for-microcontrollers", default-features = false }
 embedded-hal = "0.2.2"
 embedded-nal = "0.6.0"
 
