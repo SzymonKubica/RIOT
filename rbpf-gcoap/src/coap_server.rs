@@ -7,6 +7,7 @@ use riot_wrappers::{gcoap, gnrc, mutex::Mutex, riot_sys, stdio::println, thread,
 use crate::handlers::{handle_femtocontainer_execution, handle_riot_board};
 use crate::handlers::handle_console_write;
 use crate::handlers::handle_bytecode_load;
+use crate::handlers::handle_benchmark;
 
 pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
     // Each endpoint needs a request handler defined as its own struct implemneting
@@ -41,12 +42,20 @@ pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
         &mut femtocontainer_handler,
     );
 
+    let mut bench_handler = riot_wrappers::coap_handler::GcoapHandler(handle_benchmark());
+    let mut bench_listener = gcoap::SingleHandlerListener::new(
+        cstr!("/benchmark"),
+        riot_sys::COAP_POST,
+        &mut bench_handler,
+    );
+
     gcoap::scope(|greg| {
         // Endpoint handlers are registered here.
         greg.register(&mut console_write_listener);
         greg.register(&mut riot_board_listener);
         greg.register(&mut bytecode_listener);
         greg.register(&mut femtocontainer_listener);
+        greg.register(&mut bench_listener);
 
         println!(
             "CoAP server ready; waiting for interfaces to settle before reporting addresses..."

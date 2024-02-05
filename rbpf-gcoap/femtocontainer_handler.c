@@ -7,10 +7,6 @@
 #include "suit/transport/coap.h"
 
 static uint8_t _stack[512] = {0};
-typedef struct {
-  uint8_t *buf;
-  size_t buf_len; /**< Packet buffer length */
-} checksum_ctx_t;
 
 static f12r_t _bpf = {
     .stack_region = NULL,
@@ -28,15 +24,9 @@ static f12r_t _bpf = {
 };
 
 typedef struct {
-  __bpf_shared_ptr(void *, pkt); /**< Opaque pointer to the coap_pkt_t struct */
-  __bpf_shared_ptr(uint8_t *, buf); /**< Packet buffer */
-  size_t buf_len;                   /**< Packet buffer length */
-} f12r_coap_ctx_t;
-
-typedef struct {
-  int length;
   // Need to use this stupid opaque pointer otherwise the address is translated incorrectly.
   __bpf_shared_ptr(void *, payload); /**< Opaque pointer to the payload */
+  int payload_length;
 } context_t;
 
 uint32_t execute_femtocontainer_vm(uint8_t *payload, size_t payload_len,
@@ -75,12 +65,11 @@ uint32_t execute_femtocontainer_vm(uint8_t *payload, size_t payload_len,
   _bpf.application_len = length;
 
   f12r_mem_region_t mem_context;
-  f12r_mem_region_t mem_context2;
 
   context_t *bpf_ctx = malloc(sizeof(context_t));
-  bpf_ctx->length = 10;
   bpf_ctx->payload = payload;
-  printf("Payload pointer: %p \n", (void *)payload);
+  bpf_ctx->payload_length = payload_len;
+  LOG_DEBUG("Payload pointer: %p \n", (void *)payload);
 
   // TODO: find out how to set the memory regions correctly
   LOG_DEBUG("[BPF handler]: payload length: %d\n", payload_len);
@@ -91,14 +80,13 @@ uint32_t execute_femtocontainer_vm(uint8_t *payload, size_t payload_len,
   f12r_setup(&_bpf);
   f12r_add_region(&_bpf, &mem_context, payload, payload_len,
                   FC_MEM_REGION_READ | FC_MEM_REGION_WRITE);
-  f12r_add_region(&_bpf, &mem_context2, payload, payload_len,
-                  FC_MEM_REGION_READ | FC_MEM_REGION_WRITE);
 
   int64_t result = -1;
   printf("[BPF handler]: executing VM\n");
   ztimer_acquire(ZTIMER_USEC);
   ztimer_now_t start = ztimer_now(ZTIMER_USEC);
-  int res = f12r_execute_ctx(&_bpf, bpf_ctx, 32, &result);
+  // Figure out the size of the context
+  int res = f12r_execute_ctx(&_bpf, bpf_ctx, 64, &result);
   ztimer_now_t end = ztimer_now(ZTIMER_USEC);
   uint32_t execution_time = end - start;
 

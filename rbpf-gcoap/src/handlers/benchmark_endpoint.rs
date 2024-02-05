@@ -1,5 +1,5 @@
 use alloc::format;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use coap_handler_implementations::SimpleRendered;
 use coap_message::{MessageOption, MutableWritableMessage, ReadableMessage};
@@ -9,12 +9,14 @@ use riot_wrappers::{cstr::cstr, stdio::println, ztimer::Clock};
 
 use crate::rbpf;
 use crate::rbpf::helpers;
-// The riot_sys reimported through the wrappers doesn't seem to work.
 use riot_sys;
 
-struct BpfBytecodeLoader {}
+struct BenchmarkHandler {
+    rbpf_time: u32,
+    femtocontainer_time: u32,
+}
 
-impl coap_handler::Handler for BpfBytecodeLoader {
+impl coap_handler::Handler for BenchmarkHandler {
     type RequestData = u8;
 
     fn extract_request_data(&mut self, request: &impl ReadableMessage) -> Self::RequestData {
@@ -24,7 +26,28 @@ impl coap_handler::Handler for BpfBytecodeLoader {
             fn load_bytes_from_suit_storage(buffer: *mut u8, location: *const char) -> u32;
         }
 
-        pub fn perform_checksum(checksum_message: &str, program: &[u8]) {
+        pub fn run_rbpf_vm(checksum_message: &str) -> u32 {
+            // The SUIT ram storage for the program is 2048 bytes large so we won't
+            // be able to load larger images. Hence 2048 byte buffer is sufficient
+            let mut buffer: [u8; 2048] = [0; 2048];
+            let mut length = 0;
+
+            // The rbpf code is always loaded from .ram.0
+            let mut location = ".ram.0\0";
+
+            unsafe {
+                let buffer_ptr = buffer.as_mut_ptr();
+                // TODO: add ability to select between ram 0 and 1
+                let location_ptr = location.as_ptr() as *const char;
+                length = load_bytes_from_suit_storage(buffer_ptr, location_ptr);
+            };
+
+            let program = &buffer[..(length as usize)];
+            println!(
+                "Read program bytecode from SUIT storage location {}:\n {:?}",
+                location,
+                program.to_vec()
+            );
             let message_bytes = checksum_message.as_bytes();
 
             let packet = Packet {
@@ -35,11 +58,6 @@ impl coap_handler::Handler for BpfBytecodeLoader {
             // Initialise the VM operating on a fixed memory buffer.
             let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(program), 0x40, 0x50).unwrap();
 
-            // We register a helper function, that can be called by the program, into
-            // the VM.
-            vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf)
-                .unwrap();
-
             // This unsafe hacking is needed as the ztimer_now call expects to get an
             // argument of type riot_sys::inline::ztimer_clock_t but the ztimer_clock_t
             // ZTIMER_USEC that we get from riot_sys has type riot_sys::ztimer_clock_t.
@@ -48,8 +66,38 @@ impl coap_handler::Handler for BpfBytecodeLoader {
             let res = vm.execute_program(&mut packet_with_payload).unwrap();
             let end: u32 = unsafe { riot_sys::inline::ztimer_now(clock) };
 
+            let execution_time = end - start;
             println!("Program returned: {:?} ({:#x})", res, res);
-            println!("Execution time: {} [us]", end - start);
+            println!("Execution time: {} [us]", execution_time);
+            execution_time
+        }
+
+        pub fn run_femtocontainer_vm(checksum_message: &str) -> u32 {
+            extern "C" {
+                /// Responsible for loading the bytecode from the SUIT ram storage.
+                /// The application bytes are written into the buffer.
+                fn execute_femtocontainer_vm(
+                    payload: *const u8,
+                    payload_len: usize,
+                    location: *const char,
+                ) -> u32;
+            }
+            let message_bytes = checksum_message.as_bytes();
+
+            // Femtocontainers always loaded from .ram.1
+            let location = ".ram.1\0";
+
+            let mut execution_time = 0;
+            unsafe {
+                // This assumes that the program has been loaded into the
+                // SUIT storage slot .ram.1
+                execution_time = execute_femtocontainer_vm(
+                    message_bytes.as_ptr(),
+                    message_bytes.len(),
+                    location.as_ptr() as *const char,
+                );
+            }
+            execution_time
         }
 
         if request.code().into() != coap_numbers::code::POST {
@@ -63,38 +111,24 @@ impl coap_handler::Handler for BpfBytecodeLoader {
         };
 
         println!("Request payload received: {}", s);
-
-        // The SUIT ram storage for the program is 2048 bytes large so we won't
-        // be able to load larger images. Hence 2048 byte buffer is sufficient
-        let mut buffer: [u8; 2048] = [0; 2048];
-        let mut length = 0;
-
-        let mut location = format!(".ram.{s}\0");
-
-        unsafe {
-            let buffer_ptr = buffer.as_mut_ptr();
-            // TODO: add ability to select between ram 0 and 1
-            let location_ptr = location.as_ptr() as *const char;
-            length = load_bytes_from_suit_storage(buffer_ptr, location_ptr);
-        };
-
-        let program = &buffer[..(length as usize)];
-        println!(
-            "Read program bytecode from SUIT storage location {}:\n {:?}",
-            location,
-            program.to_vec()
-        );
+        // Payload controlls the number of 128 character chunks that are used
+        // to compose the checksum message.
 
         // This checksum was taken from an example in RIOT.
-        let checksum_message = "abcdef\
-            AD3Awn4kb6FtcsyE0RU25U7f55Yncn3LP3oEx9Gl4qr7iDW7I8L6Pbw9jNnh0sE4DmCKuc\
-            d1J8I34vn31W924y5GMS74vUrZQc08805aj4Tf66HgL1cO94os10V2s2GDQ825yNh9Yuq3\
-            QHcA60xl31rdA7WskVtCXI7ruH1A4qaR6Uk454hm401lLmv2cGWt5KTJmr93d3JsGaRRPs\
-            4HqYi4mFGowo8fWv48IcA3N89Z99nf0A0H2R6P0uI4Tir682Of3Rk78DUB2dIGQRRpdqVT\
-            tLhgfET2gUGU65V3edSwADMqRttI9JPVz8JS37g5QZj4Ax56rU1u0m0K8YUs57UYG5645n\
-            byNy4yqxu7";
+        let mut checksum_message: String = "Ig17905kl50Xd31b59LC474BBw2xW50lMUf06hOjSx\
+                                    DPfql0yvj7y0gbsDgwB653Pm5yjig0K5nfCS49WyIM3\
+                                    HE1648uMqHCS5WrAVuSO4zKF4O64j26Msvdll404kAO".to_string();
 
-        perform_checksum(checksum_message, program);
+        let chunks = s.parse::<u8>().unwrap();
+        for _ in 0..chunks {
+            checksum_message.push_str(&checksum_message.clone());
+        }
+
+        let rbpf_time = run_rbpf_vm(&checksum_message);
+        let femtocontainers_time = run_femtocontainer_vm(&checksum_message);
+
+        self.rbpf_time = rbpf_time;
+        self.femtocontainer_time = femtocontainers_time;
 
         coap_numbers::code::CHANGED
     }
@@ -109,12 +143,21 @@ impl coap_handler::Handler for BpfBytecodeLoader {
         request: Self::RequestData,
     ) {
         response.set_code(request.try_into().map_err(|_| ()).unwrap());
-        response.set_payload(b"Success");
+        let payload = format!(
+            "{{rbpf: {}, femtocontainer: {}}}",
+            self.rbpf_time, self.femtocontainer_time
+        );
+
+        let bytes = payload.as_bytes();
+        response.set_payload(bytes);
     }
 }
 
-pub fn handle_bytecode_load() -> impl coap_handler::Handler {
-    BpfBytecodeLoader {}
+pub fn handle_benchmark() -> impl coap_handler::Handler {
+    BenchmarkHandler {
+        rbpf_time: 0,
+        femtocontainer_time: 0,
+    }
 }
 
 struct Packet {
