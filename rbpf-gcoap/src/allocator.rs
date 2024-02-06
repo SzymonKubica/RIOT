@@ -1,8 +1,8 @@
 pub mod allocator {
     use alloc::alloc::*;
-    use riot_wrappers::riot_sys::malloc;
-    use riot_wrappers::riot_sys::free;
     use core::ffi::c_void;
+    use riot_wrappers::riot_sys::free;
+    use riot_wrappers::riot_sys::malloc;
 
     /// The global allocator type.
     #[derive(Default)]
@@ -17,9 +17,11 @@ pub mod allocator {
         }
     }
 
-
     /// The static global allocator.
+    /// It's purpose is to allow for using alloc rust crate allowing for
+    /// using dynamically allocated data structures. The implementation of
+    /// this allocator forwards the calls to the RIOT implementations of
+    /// malloc and free.
     #[global_allocator]
     static GLOBAL_ALLOCATOR: Allocator = Allocator;
 }
-
