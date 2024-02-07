@@ -5,15 +5,14 @@
 // directory for more details.
 #![no_std]
 
+use riot_wrappers::cstr::cstr;
 use riot_wrappers::riot_main;
 use riot_wrappers::{mutex::Mutex, stdio::println, thread, ztimer};
-use riot_wrappers::cstr::cstr;
 
-mod coap_server;
-mod shell;
-mod handlers;
 mod allocator;
-
+mod coap_server;
+mod handlers;
+mod shell;
 
 // The second thread is running the CoAP network stack, therefore its
 // stack memory size needs to be appropriately larger.
@@ -21,10 +20,10 @@ mod allocator;
 static COAP_THREAD_STACK: Mutex<[u8; 16384]> = Mutex::new([0; 16384]);
 static SHELL_THREAD_STACK: Mutex<[u8; 5120]> = Mutex::new([0; 5120]);
 
-extern crate rust_riotmodules;
-extern crate rbpf;
 extern crate alloc;
+extern crate rbpf;
 extern crate riot_sys;
+extern crate rust_riotmodules;
 
 riot_main!(main);
 
@@ -42,7 +41,7 @@ fn main() {
     let countdown = Mutex::new(3);
 
     // Lock the stacks of the threads.
-    let mut secondthread_stacklock = COAP_THREAD_STACK.lock();
+    let mut gcoapthread_stacklock = COAP_THREAD_STACK.lock();
     let mut shellthread_stacklock = SHELL_THREAD_STACK.lock();
 
     let mut gcoapthread_mainclosure = || coap_server::gcoap_server_main(&countdown).unwrap();
@@ -52,7 +51,7 @@ fn main() {
     thread::scope(|threadscope| {
         let secondthread = threadscope
             .spawn(
-                secondthread_stacklock.as_mut(),
+                gcoapthread_stacklock.as_mut(),
                 &mut gcoapthread_mainclosure,
                 cstr!("secondthread"),
                 (riot_sys::THREAD_PRIORITY_MAIN - 2) as _,
@@ -90,5 +89,3 @@ fn main() {
     });
     unreachable!();
 }
-
-
