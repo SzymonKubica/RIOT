@@ -4,10 +4,11 @@ use core::convert::TryInto;
 use riot_wrappers::cstr::cstr;
 use riot_wrappers::{gcoap, gnrc, mutex::Mutex, riot_sys, stdio::println, thread, ztimer};
 
-use crate::handlers::{handle_femtocontainer_execution, handle_riot_board};
-use crate::handlers::handle_console_write;
-use crate::handlers::handle_bytecode_load;
 use crate::handlers::handle_benchmark;
+use crate::handlers::handle_bytecode_load;
+use crate::handlers::handle_console_write;
+use crate::handlers::handle_suit_pull;
+use crate::handlers::{handle_femtocontainer_execution, handle_riot_board};
 
 pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
     // Each endpoint needs a request handler defined as its own struct implemneting
@@ -35,7 +36,8 @@ pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
         &mut bytecode_handler,
     );
 
-    let mut femtocontainer_handler = riot_wrappers::coap_handler::GcoapHandler(handle_femtocontainer_execution());
+    let mut femtocontainer_handler =
+        riot_wrappers::coap_handler::GcoapHandler(handle_femtocontainer_execution());
     let mut femtocontainer_listener = gcoap::SingleHandlerListener::new(
         cstr!("/bpf/exec"),
         riot_sys::COAP_POST,
@@ -49,6 +51,13 @@ pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
         &mut bench_handler,
     );
 
+    let mut suit_pull_handler = riot_wrappers::coap_handler::GcoapHandler(handle_suit_pull());
+    let mut suit_pull_listener = gcoap::SingleHandlerListener::new(
+        cstr!("/suit-pull"),
+        riot_sys::COAP_POST,
+        &mut suit_pull_handler,
+    );
+
     gcoap::scope(|greg| {
         // Endpoint handlers are registered here.
         greg.register(&mut console_write_listener);
@@ -56,6 +65,7 @@ pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
         greg.register(&mut bytecode_listener);
         greg.register(&mut femtocontainer_listener);
         greg.register(&mut bench_listener);
+        greg.register(&mut suit_pull_listener);
 
         println!(
             "CoAP server ready; waiting for interfaces to settle before reporting addresses..."
@@ -91,4 +101,3 @@ pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
 
     Ok(())
 }
-
