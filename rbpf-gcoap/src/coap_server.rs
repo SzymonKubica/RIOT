@@ -53,7 +53,7 @@ pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
 
     let mut suit_pull_handler = riot_wrappers::coap_handler::GcoapHandler(handle_suit_pull());
     let mut suit_pull_listener = gcoap::SingleHandlerListener::new(
-        cstr!("/suit-pull"),
+        cstr!("/suit/pull"),
         riot_sys::COAP_POST,
         &mut suit_pull_handler,
     );
