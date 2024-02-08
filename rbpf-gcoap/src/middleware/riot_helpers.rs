@@ -15,6 +15,7 @@ use riot_wrappers::stdio::println;
 /* Aux helper functions (stdlib) */
 pub const BPF_PRINTF_IDX: u32 = 0x01;
 pub const BPF_MEMCPY_IDX: u32 = 0x02;
+pub const BPF_DEBUG_PRINT_IDX: u32 = 0x03;
 
 /* Key/value store functions */
 pub const BPF_STORE_LOCAL_IDX: u32 = 0x10;
@@ -44,7 +45,7 @@ pub const BPF_FMT_U32_DEC_IDX: u32 = 0x51;
 pub const BPF_ZTIMER_NOW_IDX: u32 = 0x60;
 pub const BPF_ZTIMER_PERIODIC_WAKEUP_IDX: u32 = 0x61;
 
-///
+/// The goal is to allow for printing arbitrary text, it isn't possible at the moment.
 pub fn bpf_printf(fmt: u64, a1: u64, a2: u64, a3: u64, a4: u64) -> u64 {
     // TODO: figure out how to the format string from the eBPF program so that
     // it can be loaded here. Is that even easily doable?
@@ -52,6 +53,12 @@ pub fn bpf_printf(fmt: u64, a1: u64, a2: u64, a3: u64, a4: u64) -> u64 {
     // For now, behaves the same way as bpf_trace_printk from rBPF but with decimal
     // formatting.
     println!("bpf_trace_printf: {a1}, {a2}, {a3}, {a4}");
+    return 0;
+}
+
+/// Responsible for printing debug information. Prints a single value.
+pub fn bpf_print_debug(a1: u64, unused2: u64, unused3: u64, unused4: u64, unused5: u64) -> u64 {
+    println!("[DEBUG]: {a1}");
     return 0;
 }
 

@@ -16,7 +16,7 @@ panic = "abort"
 # This is a typical set of options that helps Rust binaries stay small
 lto = true
 codegen-units = 1
-opt-level = "s"
+opt-level = 3
 
 [dependencies]
 riot-wrappers = { version = "0.8", features = [ "set_panic_handler", "panic_handler_format", "with_coap_message", "with_coap_handler", "with_embedded_nal" ] }

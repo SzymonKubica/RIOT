@@ -44,6 +44,9 @@ impl coap_handler::Handler for BpfBytecodeLoader {
             vm.register_helper(middleware::BPF_NOW_MS_IDX, middleware::bpf_now_ms)
                 .unwrap();
 
+            vm.register_helper(middleware::BPF_DEBUG_PRINT_IDX, middleware::bpf_print_debug)
+                .unwrap();
+
             vm.register_helper(middleware::BPF_ZTIMER_NOW_IDX, middleware::bpf_ztimer_now)
                 .unwrap();
 

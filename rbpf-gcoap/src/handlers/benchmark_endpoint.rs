@@ -9,6 +9,7 @@ use riot_wrappers::{cstr::cstr, stdio::println, ztimer::Clock};
 
 use crate::rbpf;
 use crate::rbpf::helpers;
+use crate::middleware;
 use riot_sys;
 
 struct BenchmarkHandler {
@@ -57,6 +58,21 @@ impl coap_handler::Handler for BenchmarkHandler {
 
             // Initialise the VM operating on a fixed memory buffer.
             let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(program), 0x40, 0x50).unwrap();
+
+            vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf)
+                .unwrap();
+
+            vm.register_helper(middleware::BPF_NOW_MS_IDX, middleware::bpf_now_ms)
+                .unwrap();
+
+            vm.register_helper(middleware::BPF_DEBUG_PRINT_IDX, middleware::bpf_print_debug)
+                .unwrap();
+
+            vm.register_helper(middleware::BPF_ZTIMER_NOW_IDX, middleware::bpf_ztimer_now)
+                .unwrap();
+
+            vm.register_helper(middleware::BPF_PRINTF_IDX, middleware::bpf_printf)
+                .unwrap();
 
             // This unsafe hacking is needed as the ztimer_now call expects to get an
             // argument of type riot_sys::inline::ztimer_clock_t but the ztimer_clock_t
