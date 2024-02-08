@@ -7,10 +7,10 @@
  * directory for more details.
  */
 
-#include <stdint.h>
-#include <stdlib.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "femtocontainer/femtocontainer.h"
@@ -21,66 +21,61 @@
 #include "net/gcoap.h"
 #include "net/nanocoap.h"
 #endif
+#include "fmt.h"
 #include "saul.h"
 #include "saul_reg.h"
-#include "fmt.h"
 
 #ifdef MODULE_ZTIMER
 #include "ztimer.h"
 #endif
 
-uint32_t f12r_vm_memcpy(f12r_t *f12r, uint64_t *regs)
-{
-    (void)f12r;
+uint32_t f12r_vm_memcpy(f12r_t *f12r, uint64_t *regs) {
+  (void)f12r;
 
-    void *dest = (void *)(uintptr_t)regs[0];
-    const void *src = (const void *)(uintptr_t)regs[1];
+  void *dest = (void *)(uintptr_t)regs[0];
+  const void *src = (const void *)(uintptr_t)regs[1];
 
-    return (uintptr_t) memcpy(dest, src, regs[2]);
+  return (uintptr_t)memcpy(dest, src, regs[2]);
 }
 
 #ifdef MODULE_SAUL_REG
-uint32_t f12r_vm_saul_reg_find_nth(f12r_t *f12r, uint64_t *regs)
-{
-    (void)f12r;
-    // The function argument seems to be inserted in regs 1
-    int pos = (int)regs[1];
-    for (int i = 0; i < 5; i++) {
-       printf("bpf_vm_saul_reg_find_nth: reg%d=%d\n", i, regs[i]);
-    }
-    saul_reg_t *reg = saul_reg_find_nth(pos);
-    return (uint32_t)(intptr_t)reg;
+uint32_t f12r_vm_saul_reg_find_nth(f12r_t *f12r, uint64_t *regs) {
+  (void)f12r;
+  // The function argument seems to be inserted in regs 1
+  int pos = (int)regs[1];
+  for (int i = 0; i < 5; i++) {
+    printf("bpf_vm_saul_reg_find_nth: reg%d=%d\n", i, regs[i]);
+  }
+  saul_reg_t *reg = saul_reg_find_nth(pos);
+  return (uint32_t)(intptr_t)reg;
 }
 
-uint32_t f12r_vm_saul_reg_find_type(f12r_t *f12r, uint64_t *regs)
-{
-    (void)f12r;
+uint32_t f12r_vm_saul_reg_find_type(f12r_t *f12r, uint64_t *regs) {
+  (void)f12r;
 
-    saul_reg_t *reg = saul_reg_find_type(regs[0]);
-    return (uint32_t)(intptr_t)reg;
+  saul_reg_t *reg = saul_reg_find_type(regs[0]);
+  return (uint32_t)(intptr_t)reg;
 }
 
-uint32_t f12r_vm_saul_reg_read(f12r_t *f12r, uint64_t *regs)
-{
-    (void)f12r;
+uint32_t f12r_vm_saul_reg_read(f12r_t *f12r, uint64_t *regs) {
+  (void)f12r;
 
-    saul_reg_t *dev = (saul_reg_t*)(intptr_t)regs[0];
-    phydat_t *data = (phydat_t*)(intptr_t)regs[1];
+  saul_reg_t *dev = (saul_reg_t *)(intptr_t)regs[0];
+  phydat_t *data = (phydat_t *)(intptr_t)regs[1];
 
-    int res = saul_reg_read(dev, data);
-    return (uint32_t)res;
+  int res = saul_reg_read(dev, data);
+  return (uint32_t)res;
 }
 
-uint32_t f12r_vm_saul_reg_write(f12r_t *f12r, uint64_t *regs)
-{
-    (void)f12r;
+uint32_t f12r_vm_saul_reg_write(f12r_t *f12r, uint64_t *regs) {
+  (void)f12r;
 
-    saul_reg_t *dev = (saul_reg_t*)(intptr_t)regs[1];
-    phydat_t *data = (phydat_t*)(intptr_t)regs[2];
+  saul_reg_t *dev = (saul_reg_t *)(intptr_t)regs[1];
+  phydat_t *data = (phydat_t *)(intptr_t)regs[2];
 
-    printf("bpf_vm_saul_reg_write: dev=%s, data=%d\n", dev->name, data->val[0]);
-    int res = saul_reg_write(dev, data);
-    return (uint32_t)res;
+  printf("bpf_vm_saul_reg_write: dev=%s, data=%d\n", dev->name, data->val[0]);
+  int res = saul_reg_write(dev, data);
+  return (uint32_t)res;
 }
 #endif
 
@@ -166,52 +161,53 @@ uint32_t f12r_vm_fmt_u32_dec(f12r_t *f12r, uint32_t out_p, uint32_t val, uint32_
 #endif
 
 #ifdef MODULE_ZTIMER
-uint32_t f12r_vm_ztimer_now(f12r_t *f12r, uint64_t *regs)
-{
-    (void)f12r;
-    (void)regs;
-    return ztimer_now(ZTIMER_USEC);
+uint32_t f12r_vm_ztimer_now(f12r_t *f12r, uint64_t *regs) {
+  (void)f12r;
+  (void)regs;
+  return ztimer_now(ZTIMER_USEC);
 }
-uint32_t f12r_vm_ztimer_periodic_wakeup(f12r_t *f12r, uint64_t *regs)
-{
-    (void)f12r;
+uint32_t f12r_vm_ztimer_periodic_wakeup(f12r_t *f12r, uint64_t *regs) {
+  (void)f12r;
 
-    // TODO: figure out why f12r uses registers starting at 0 whereas the compiled
-    // code puts the arument into the register 1
-    /* Old code:
-    uint32_t *last = (uint32_t*)(intptr_t)regs[0];
+  // TODO: figure out why f12r uses registers starting at 0 whereas the compiled
+  // code puts the arument into the register 1
+  /* Old code:
+  uint32_t *last = (uint32_t*)(intptr_t)regs[0];
 
-    ztimer_periodic_wakeup(ZTIMER_USEC, last, regs[1]);
-    return 0;
-    */
-    // fixed:
-    uint32_t *last = (uint32_t*)(intptr_t)regs[1];
+  ztimer_periodic_wakeup(ZTIMER_USEC, last, regs[1]);
+  return 0;
+  */
+  // fixed:
+  uint32_t *last = (uint32_t *)(intptr_t)regs[1];
 
-    ztimer_periodic_wakeup(ZTIMER_USEC, last, regs[2]);
-    return 0;
+  ztimer_periodic_wakeup(ZTIMER_USEC, last, regs[2]);
+  return 0;
 }
 #endif
 
+uint32_t f12r_vm_printf(f12r_t *f12r, uint64_t *regs) {
+  (void)f12r;
 
-uint32_t f12r_vm_printf(f12r_t *f12r, uint32_t fmt, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
-{
-    (void)f12r;
-    return printf((char*)(uintptr_t)fmt, a2, a3, a4, a5);
+  // Not sure why the first and second register aren't used for the function
+  // arguments.
+  return printf("f12r_vm_printf: 0x%x, 0x%x, 0x%x, 0x%x\n",
+                (uint32_t *)(intptr_t)regs[2], (uint32_t *)(intptr_t)regs[3],
+                (uint32_t *)(intptr_t)regs[4], (uint32_t *)(intptr_t)regs[5]);
 }
 
-
-f12r_call_t f12r_get_external_call(uint32_t num)
-{
-    switch(num) {
+f12r_call_t f12r_get_external_call(uint32_t num) {
+  switch (num) {
+  case BPF_FUNC_BPF_PRINTF:
+    return &f12r_vm_printf;
 #ifdef MODULE_SAUL_REG
-        case BPF_FUNC_BPF_SAUL_REG_FIND_NTH:
-            return &f12r_vm_saul_reg_find_nth;
-        case BPF_FUNC_BPF_SAUL_REG_FIND_TYPE:
-            return &f12r_vm_saul_reg_find_type;
-        case BPF_FUNC_BPF_SAUL_REG_READ:
-            return &f12r_vm_saul_reg_read;
-        case BPF_FUNC_BPF_SAUL_REG_WRITE:
-            return &f12r_vm_saul_reg_write;
+  case BPF_FUNC_BPF_SAUL_REG_FIND_NTH:
+    return &f12r_vm_saul_reg_find_nth;
+  case BPF_FUNC_BPF_SAUL_REG_FIND_TYPE:
+    return &f12r_vm_saul_reg_find_type;
+  case BPF_FUNC_BPF_SAUL_REG_READ:
+    return &f12r_vm_saul_reg_read;
+  case BPF_FUNC_BPF_SAUL_REG_WRITE:
+    return &f12r_vm_saul_reg_write;
 #endif
 #if 0
 #ifdef MODULE_GCOAP
@@ -232,12 +228,12 @@ f12r_call_t f12r_get_external_call(uint32_t num)
 #endif
 #endif
 #ifdef MODULE_ZTIMER
-        case BPF_FUNC_BPF_ZTIMER_NOW:
-            return &f12r_vm_ztimer_now;
-        case BPF_FUNC_BPF_ZTIMER_PERIODIC_WAKEUP:
-            return &f12r_vm_ztimer_periodic_wakeup;
+  case BPF_FUNC_BPF_ZTIMER_NOW:
+    return &f12r_vm_ztimer_now;
+  case BPF_FUNC_BPF_ZTIMER_PERIODIC_WAKEUP:
+    return &f12r_vm_ztimer_periodic_wakeup;
 #endif
-        default:
-            return NULL;
-    }
+  default:
+    return NULL;
+  }
 }

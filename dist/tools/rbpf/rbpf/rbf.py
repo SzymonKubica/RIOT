@@ -173,7 +173,9 @@ class RBF(object):
 
     @staticmethod
     def _get_section_lddw_opcode(section):
-        if section == RODATA:
+        # Adapted here as some of the section names for rodata were different
+        # from .rodata
+        if RODATA in section:
             return instructions.LDDWR_OPCODE
         elif section == DATA:
             return instructions.LDDWD_OPCODE

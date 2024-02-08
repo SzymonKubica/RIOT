@@ -35,7 +35,7 @@
 uint32_t bpf_vm_printf(bpf_t *bpf, uint32_t fmt, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
 {
     (void)bpf;
-    return printf((char*)(uintptr_t)fmt, a2, a3, a4, a5);
+    return printf((const char*)fmt, a2, a3, a4, a5);
 }
 
 uint32_t bpf_vm_store_local(bpf_t *bpf, uint32_t key, uint32_t value, uint32_t a3, uint32_t a4, uint32_t a5)
