@@ -12,6 +12,7 @@ use riot_wrappers::{mutex::Mutex, stdio::println, thread, ztimer};
 mod allocator;
 mod coap_server;
 mod handlers;
+mod middleware;
 mod shell;
 
 // The second thread is running the CoAP network stack, therefore its

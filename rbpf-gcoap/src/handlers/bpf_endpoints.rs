@@ -11,6 +11,7 @@ use crate::rbpf;
 use crate::rbpf::helpers;
 // The riot_sys reimported through the wrappers doesn't seem to work.
 use riot_sys;
+use crate::middleware;
 
 struct BpfBytecodeLoader {}
 
@@ -38,6 +39,15 @@ impl coap_handler::Handler for BpfBytecodeLoader {
             // We register a helper function, that can be called by the program, into
             // the VM.
             vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf)
+                .unwrap();
+
+            vm.register_helper(middleware::BPF_NOW_MS_IDX, middleware::bpf_now_ms)
+                .unwrap();
+
+            vm.register_helper(middleware::BPF_ZTIMER_NOW_IDX, middleware::bpf_ztimer_now)
+                .unwrap();
+
+            vm.register_helper(middleware::BPF_PRINTF_IDX, middleware::bpf_printf)
                 .unwrap();
 
             // This unsafe hacking is needed as the ztimer_now call expects to get an

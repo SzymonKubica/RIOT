@@ -39,7 +39,7 @@ pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
     let mut femtocontainer_handler =
         riot_wrappers::coap_handler::GcoapHandler(handle_femtocontainer_execution());
     let mut femtocontainer_listener = gcoap::SingleHandlerListener::new(
-        cstr!("/bpf/exec"),
+        cstr!("/femto-container/exec"),
         riot_sys::COAP_POST,
         &mut femtocontainer_handler,
     );
