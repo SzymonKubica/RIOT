@@ -43,9 +43,6 @@ uint32_t f12r_vm_saul_reg_find_nth(f12r_t *f12r, uint64_t *regs) {
   (void)f12r;
   // The function argument seems to be inserted in regs 1
   int pos = (int)regs[1];
-  for (int i = 0; i < 5; i++) {
-    printf("bpf_vm_saul_reg_find_nth: reg%d=%d\n", i, regs[i]);
-  }
   saul_reg_t *reg = saul_reg_find_nth(pos);
   return (uint32_t)(intptr_t)reg;
 }
