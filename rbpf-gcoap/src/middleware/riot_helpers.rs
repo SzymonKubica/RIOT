@@ -67,17 +67,13 @@ pub fn bpf_print_debug(a1: u64, unused2: u64, unused3: u64, unused4: u64, unused
 
 /* Standard library functions */
 
-pub fn bpf_memcpy(
-    dest_p: u64,
-    src_p: u64,
-    size: u64,
-    unused4: u64,
-    unused5: u64,
-) -> u64 {
-
+pub fn bpf_memcpy(dest_p: u64, src_p: u64, size: u64, unused4: u64, unused5: u64) -> u64 {
     let dest: *mut riot_sys::libc::c_void = dest_p as *mut riot_sys::libc::c_void;
-    let src: *const riot_sys::libc::c_void = src as *const riot_sys::libc::c_void;
-    return riot_sys::memcpy(dest, src, size as usize) as u64;
+    let src: *const riot_sys::libc::c_void = src_p as *const riot_sys::libc::c_void;
+    let size = size as u32;
+    unsafe {
+        return riot_sys::memcpy(dest, src, size) as u64;
+    }
 }
 
 /* Saul functions - implementation */
@@ -145,16 +141,25 @@ pub fn bpf_saul_reg_write(
 }
 
 #[repr(align(8))]
+#[derive(Debug)]
+/// Wrapper for struct fields that need to be aligned at the 8-bytest binary.
+/// It is introduced to mimice the __attribute__((aligned(8))) that is used
+/// on bpf_coap_ctx_t on the eBPF C code side.
+struct Align8<T>(pub T);
+
+#[derive(Debug)]
 struct CoapContext {
     /// Opaque pointer to the coap_pkt_t struct
-    pkt: *mut riot_sys::coap_pkt_t,
+    pkt: Align8<*mut riot_sys::coap_pkt_t>,
     /// Packet buffer
-    buf: *mut u8,
+    buf: Align8<*mut u8>,
     /// Packet buffer length
-    buf_len: u32,
+    buf_len: usize,
 }
 
 /* (g)coap functions */
+/// Initializes a CoAP response packet on a buffer.
+/// Initializes payload location within the buffer based on packet setup.
 pub fn bpf_gcoap_resp_init(
     coap_ctx_p: u64,
     resp_code: u64,
@@ -168,30 +173,44 @@ pub fn bpf_gcoap_resp_init(
 
     unsafe {
         return riot_sys::gcoap_resp_init(
-            (*coap_ctx).pkt,
-            (*coap_ctx).buf,
-            (*coap_ctx).buf_len,
+            (*coap_ctx).pkt.0,
+            (*coap_ctx).buf.0,
+            (*coap_ctx).buf_len as u32,
             resp_code,
         ) as u64;
     }
 }
+
 pub fn bpf_coap_opt_finish(
-    unused1: u64,
-    unused2: u64,
+    coap_ctx_p: u64,
+    flags_u: u64,
     unused3: u64,
     unused4: u64,
     unused5: u64,
 ) -> u64 {
-    return 0;
+    let coap_ctx: *const CoapContext = coap_ctx_p as *const CoapContext;
+    unsafe {
+        return riot_sys::coap_opt_finish((*coap_ctx).pkt.0, flags_u as u16) as u64;
+    }
 }
+
+/// Append a Content-Format option to the pkt buffer.
 pub fn bpf_coap_add_format(
-    unused1: u64,
-    unused2: u64,
+    coap_ctx_p: u64,
+    format: u64,
     unused3: u64,
     unused4: u64,
     unused5: u64,
 ) -> u64 {
-    return 0;
+    let coap_ctx: *const CoapContext = coap_ctx_p as *const CoapContext;
+    unsafe {
+        // Again the type cast hacking is needed because we are using the function
+        // from the inline module.
+        return riot_sys::inline::coap_opt_add_format(
+            (*coap_ctx).pkt.0 as *mut riot_sys::inline::coap_pkt_t,
+            format as u16,
+        ) as u64;
+    }
 }
 pub fn bpf_coap_get_pdu(
     unused1: u64,
@@ -236,8 +255,8 @@ pub const ALL_HELPERS: [(u32, fn(u64, u64, u64, u64, u64) -> u64); 12] = [
     (BPF_SAUL_REG_WRITE_IDX, bpf_saul_reg_write),
     (BPF_SAUL_REG_READ_IDX, bpf_saul_reg_read),
     (BPF_GCOAP_RESP_INIT_IDX, bpf_gcoap_resp_init),
-    (BPF_COAP_OPT_FINISH_IDX, bpf_gcoap_resp_init),
-    (BPF_COAP_ADD_FORMAT_IDX, bpf_gcoap_resp_init),
+    (BPF_COAP_OPT_FINISH_IDX, bpf_coap_opt_finish),
+    (BPF_COAP_ADD_FORMAT_IDX, bpf_coap_add_format),
     (BPF_COAP_GET_PDU_IDX, bpf_gcoap_resp_init),
 ];
 
