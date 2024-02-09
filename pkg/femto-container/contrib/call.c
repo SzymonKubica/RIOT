@@ -50,15 +50,15 @@ uint32_t f12r_vm_saul_reg_find_nth(f12r_t *f12r, uint64_t *regs) {
 uint32_t f12r_vm_saul_reg_find_type(f12r_t *f12r, uint64_t *regs) {
   (void)f12r;
 
-  saul_reg_t *reg = saul_reg_find_type(regs[0]);
+  saul_reg_t *reg = saul_reg_find_type(regs[1]);
   return (uint32_t)(intptr_t)reg;
 }
 
 uint32_t f12r_vm_saul_reg_read(f12r_t *f12r, uint64_t *regs) {
   (void)f12r;
 
-  saul_reg_t *dev = (saul_reg_t *)(intptr_t)regs[0];
-  phydat_t *data = (phydat_t *)(intptr_t)regs[1];
+  saul_reg_t *dev = (saul_reg_t *)(intptr_t)regs[1];
+  phydat_t *data = (phydat_t *)(intptr_t)regs[2];
 
   int res = saul_reg_read(dev, data);
   return (uint32_t)res;

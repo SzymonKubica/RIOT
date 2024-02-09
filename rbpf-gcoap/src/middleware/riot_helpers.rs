@@ -80,36 +80,43 @@ pub fn bpf_saul_reg_find_nth(
     unsafe { return riot_sys::saul_reg_find_nth(saul_dev_index as i32) as u64 }
 }
 pub fn bpf_saul_reg_find_type(
-    unused1: u64,
+    saul_dev_type: u64,
     unused2: u64,
     unused3: u64,
     unused4: u64,
     unused5: u64,
 ) -> u64 {
-    return 0;
+    unsafe { return riot_sys::saul_reg_find_type(saul_dev_type as u8) as u64 }
 }
 pub fn bpf_saul_reg_read(
-    unused1: u64,
-    unused2: u64,
+    dev_ptr: u64,
+    data_ptr: u64,
     unused3: u64,
     unused4: u64,
     unused5: u64,
 ) -> u64 {
-    return 0;
+    let dev: *mut riot_sys::saul_reg_t = dev_ptr as *mut riot_sys::saul_reg_t;
+    let data: *mut riot_sys::phydat_t = data_ptr as *mut riot_sys::phydat_t;
+    let mut res = 0;
+    unsafe {
+        res = riot_sys::saul_reg_read(dev, data) as u64;
+    }
+    res
 }
 pub fn bpf_saul_reg_write(
-    device: u64,
-    payload: u64,
+    dev_ptr: u64,
+    data_ptr: u64,
     unused3: u64,
     unused4: u64,
     unused5: u64,
 ) -> u64 {
+    let dev: *mut riot_sys::saul_reg_t = dev_ptr as *mut riot_sys::saul_reg_t;
+    let data: *const riot_sys::phydat_t = data_ptr as *const riot_sys::phydat_t;
+    let mut res = 0;
     unsafe {
-        let dev: *mut riot_sys::saul_reg_t = device as *mut riot_sys::saul_reg_t;
-        let data: *const riot_sys::phydat_t = payload as *const riot_sys::phydat_t;
-        let res = riot_sys::saul_reg_write(dev, data) as u64;
-        return res;
+        res = riot_sys::saul_reg_write(dev, data) as u64;
     }
+    res
 }
 
 /// Returns the current time in milliseconds as measured by RIOT's ZTIMER.
@@ -132,7 +139,7 @@ pub fn bpf_ztimer_now(unused1: u64, unused2: u64, unused3: u64, unused4: u64, un
 
 /// List of all helpers together with their corresponding numbers (used
 /// directly as function pointers in the compiled eBPF bytecode).
-pub const ALL_HELPERS: [(u32, fn(u64, u64, u64, u64, u64) -> u64); 6] = [
+pub const ALL_HELPERS: [(u32, fn(u64, u64, u64, u64, u64) -> u64); 8] = [
     // Print/debug helper functions
     (BPF_DEBUG_PRINT_IDX, bpf_print_debug),
     (BPF_PRINTF_IDX, bpf_printf),
@@ -141,7 +148,9 @@ pub const ALL_HELPERS: [(u32, fn(u64, u64, u64, u64, u64) -> u64); 6] = [
     (BPF_ZTIMER_NOW_IDX, bpf_ztimer_now),
     // Saul functions
     (BPF_SAUL_REG_FIND_NTH_IDX, bpf_saul_reg_find_nth),
+    (BPF_SAUL_REG_FIND_TYPE_IDX, bpf_saul_reg_find_type),
     (BPF_SAUL_REG_WRITE_IDX, bpf_saul_reg_write),
+    (BPF_SAUL_REG_READ_IDX, bpf_saul_reg_read),
 ];
 
 pub fn register_all(vm: &mut rbpf::EbpfVmFixedMbuff) {
