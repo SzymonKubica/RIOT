@@ -7,6 +7,8 @@
 // cases, in order to respect this convention.
 // Question: why do we need this convention?
 
+use core::ffi::CStr;
+
 use riot_wrappers::stdio::println;
 
 /// Indices of the helper functions are defined to be exactly the same as in the
@@ -51,12 +53,20 @@ pub const BPF_ZTIMER_PERIODIC_WAKEUP_IDX: u32 = 0x61;
 /* Print/debug helper functions - implementation */
 /// The goal is to allow for printing arbitrary text, it isn't possible at the moment.
 pub fn bpf_printf(fmt: u64, a1: u64, a2: u64, a3: u64, a4: u64) -> u64 {
-    // TODO: figure out how to the format string from the eBPF program so that
-    // it can be loaded here. Is that even easily doable?
-    //
-    // For now, behaves the same way as bpf_trace_printk from rBPF but with decimal
-    // formatting.
-    println!("bpf_trace_printf: {a1}, {a2}, {a3}, {a4}");
+    // We need to take in the format string dynamically, so format! or println!
+    // won't work here. We need to call into C.
+    extern "C" {
+        fn printf(fmt: *const char, ...) -> i32;
+    }
+    unsafe {
+        printf(
+            CStr::from_ptr(fmt as *const i8).as_ptr() as *const char,
+            a1 as u32,
+            a2 as u32,
+            a3 as u32,
+            a4 as u32,
+        );
+    }
     return 0;
 }
 
@@ -177,7 +187,7 @@ pub fn bpf_gcoap_resp_init(
         println!("buf_len: {:?}", (*coap_ctx).buf_len);
         println!("packet payload len: {:?}", (*(*coap_ctx).pkt.0).payload_len);
         println!("resp code: {:?}", resp_code);
-        let res =  riot_sys::gcoap_resp_init(
+        let res = riot_sys::gcoap_resp_init(
             (*coap_ctx).pkt.0,
             (*coap_ctx).buf.0,
             (*coap_ctx).buf_len as u32,
@@ -277,7 +287,6 @@ pub fn bpf_fmt_u32_dec(f12r_t *f12r, uint32_t out_p, uint32_t val, uint32_t a3, 
     return (uint32_t)res;
 }
 */
-
 
 /// List of all helpers together with their corresponding numbers (used
 /// directly as function pointers in the compiled eBPF bytecode).
