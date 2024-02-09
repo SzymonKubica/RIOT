@@ -65,6 +65,21 @@ pub fn bpf_print_debug(a1: u64, unused2: u64, unused3: u64, unused4: u64, unused
     return 0;
 }
 
+/* Standard library functions */
+
+pub fn bpf_memcpy(
+    dest_p: u64,
+    src_p: u64,
+    size: u64,
+    unused4: u64,
+    unused5: u64,
+) -> u64 {
+
+    let dest: *mut riot_sys::libc::c_void = dest_p as *mut riot_sys::libc::c_void;
+    let src: *const riot_sys::libc::c_void = src as *const riot_sys::libc::c_void;
+    return riot_sys::memcpy(dest, src, size as usize) as u64;
+}
+
 /* Saul functions - implementation */
 
 /// Find a SAUL device by its position in the registry. It returns a pointer to
@@ -79,6 +94,10 @@ pub fn bpf_saul_reg_find_nth(
 ) -> u64 {
     unsafe { return riot_sys::saul_reg_find_nth(saul_dev_index as i32) as u64 }
 }
+
+/// Find the first device of the given type. The saul_dev_type needs to match
+/// the list of all device classes is available here:
+/// https://api.riot-os.org/group__drivers__saul.html#:~:text=category%20IDs.%20More...-,enum,-%7B%0A%C2%A0%C2%A0SAUL_ACT_ANY
 pub fn bpf_saul_reg_find_type(
     saul_dev_type: u64,
     unused2: u64,
@@ -88,6 +107,9 @@ pub fn bpf_saul_reg_find_type(
 ) -> u64 {
     unsafe { return riot_sys::saul_reg_find_type(saul_dev_type as u8) as u64 }
 }
+
+/// Given a pointer to the SAUL device struct, it reads from the device into the
+/// provided phydat_t struct.
 pub fn bpf_saul_reg_read(
     dev_ptr: u64,
     data_ptr: u64,
@@ -103,6 +125,9 @@ pub fn bpf_saul_reg_read(
     }
     res
 }
+
+/// Given a pointer to the SAUL device struct, it writes the provided phydat_t
+/// struct (pointed to by data_ptr) into the device.
 pub fn bpf_saul_reg_write(
     dev_ptr: u64,
     data_ptr: u64,
@@ -117,6 +142,65 @@ pub fn bpf_saul_reg_write(
         res = riot_sys::saul_reg_write(dev, data) as u64;
     }
     res
+}
+
+#[repr(align(8))]
+struct CoapContext {
+    /// Opaque pointer to the coap_pkt_t struct
+    pkt: *mut riot_sys::coap_pkt_t,
+    /// Packet buffer
+    buf: *mut u8,
+    /// Packet buffer length
+    buf_len: u32,
+}
+
+/* (g)coap functions */
+pub fn bpf_gcoap_resp_init(
+    coap_ctx_p: u64,
+    resp_code: u64,
+    unused3: u64,
+    unused4: u64,
+    unused5: u64,
+) -> u64 {
+    let coap_ctx: *const CoapContext = coap_ctx_p as *const CoapContext;
+
+    let resp_code = resp_code as u32;
+
+    unsafe {
+        return riot_sys::gcoap_resp_init(
+            (*coap_ctx).pkt,
+            (*coap_ctx).buf,
+            (*coap_ctx).buf_len,
+            resp_code,
+        ) as u64;
+    }
+}
+pub fn bpf_coap_opt_finish(
+    unused1: u64,
+    unused2: u64,
+    unused3: u64,
+    unused4: u64,
+    unused5: u64,
+) -> u64 {
+    return 0;
+}
+pub fn bpf_coap_add_format(
+    unused1: u64,
+    unused2: u64,
+    unused3: u64,
+    unused4: u64,
+    unused5: u64,
+) -> u64 {
+    return 0;
+}
+pub fn bpf_coap_get_pdu(
+    unused1: u64,
+    unused2: u64,
+    unused3: u64,
+    unused4: u64,
+    unused5: u64,
+) -> u64 {
+    return 0;
 }
 
 /// Returns the current time in milliseconds as measured by RIOT's ZTIMER.
@@ -139,7 +223,7 @@ pub fn bpf_ztimer_now(unused1: u64, unused2: u64, unused3: u64, unused4: u64, un
 
 /// List of all helpers together with their corresponding numbers (used
 /// directly as function pointers in the compiled eBPF bytecode).
-pub const ALL_HELPERS: [(u32, fn(u64, u64, u64, u64, u64) -> u64); 8] = [
+pub const ALL_HELPERS: [(u32, fn(u64, u64, u64, u64, u64) -> u64); 12] = [
     // Print/debug helper functions
     (BPF_DEBUG_PRINT_IDX, bpf_print_debug),
     (BPF_PRINTF_IDX, bpf_printf),
@@ -151,6 +235,10 @@ pub const ALL_HELPERS: [(u32, fn(u64, u64, u64, u64, u64) -> u64); 8] = [
     (BPF_SAUL_REG_FIND_TYPE_IDX, bpf_saul_reg_find_type),
     (BPF_SAUL_REG_WRITE_IDX, bpf_saul_reg_write),
     (BPF_SAUL_REG_READ_IDX, bpf_saul_reg_read),
+    (BPF_GCOAP_RESP_INIT_IDX, bpf_gcoap_resp_init),
+    (BPF_COAP_OPT_FINISH_IDX, bpf_gcoap_resp_init),
+    (BPF_COAP_ADD_FORMAT_IDX, bpf_gcoap_resp_init),
+    (BPF_COAP_GET_PDU_IDX, bpf_gcoap_resp_init),
 ];
 
 pub fn register_all(vm: &mut rbpf::EbpfVmFixedMbuff) {
