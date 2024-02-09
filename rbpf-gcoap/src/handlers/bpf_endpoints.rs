@@ -41,17 +41,7 @@ impl coap_handler::Handler for BpfBytecodeLoader {
             vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf)
                 .unwrap();
 
-            vm.register_helper(middleware::BPF_NOW_MS_IDX, middleware::bpf_now_ms)
-                .unwrap();
-
-            vm.register_helper(middleware::BPF_DEBUG_PRINT_IDX, middleware::bpf_print_debug)
-                .unwrap();
-
-            vm.register_helper(middleware::BPF_ZTIMER_NOW_IDX, middleware::bpf_ztimer_now)
-                .unwrap();
-
-            vm.register_helper(middleware::BPF_PRINTF_IDX, middleware::bpf_printf)
-                .unwrap();
+            middleware::register_all(&mut vm);
 
             // This unsafe hacking is needed as the ztimer_now call expects to get an
             // argument of type riot_sys::inline::ztimer_clock_t but the ztimer_clock_t

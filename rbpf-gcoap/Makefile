@@ -29,6 +29,10 @@ USEMODULE += suit
 USEMODULE += suit_transport_coap
 USEMODULE += suit_storage_ram
 
+USEMODULE += saul
+USEMODULE += saul_reg
+USEMODULE += saul_default
+
 USEMODULE += progress_bar
 
 USEMODULE += vfs
