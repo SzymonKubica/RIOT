@@ -37,6 +37,7 @@ pub const BPF_COAP_OPT_FINISH_IDX: u32 = 0x41;
 pub const BPF_COAP_ADD_FORMAT_IDX: u32 = 0x42;
 pub const BPF_COAP_GET_PDU_IDX: u32 = 0x43;
 
+/* Format functions */
 pub const BPF_FMT_S16_DFP_IDX: u32 = 0x50;
 pub const BPF_FMT_U32_DEC_IDX: u32 = 0x51;
 
@@ -172,12 +173,17 @@ pub fn bpf_gcoap_resp_init(
     let resp_code = resp_code as u32;
 
     unsafe {
-        return riot_sys::gcoap_resp_init(
+        println!("coap_ctx: {:?}", *coap_ctx);
+        println!("buf_len: {:?}", (*coap_ctx).buf_len);
+        println!("packet payload len: {:?}", (*(*coap_ctx).pkt.0).payload_len);
+        println!("resp code: {:?}", resp_code);
+        let res =  riot_sys::gcoap_resp_init(
             (*coap_ctx).pkt.0,
             (*coap_ctx).buf.0,
             (*coap_ctx).buf_len as u32,
             resp_code,
         ) as u64;
+        return res;
     }
 }
 
@@ -190,6 +196,9 @@ pub fn bpf_coap_opt_finish(
 ) -> u64 {
     let coap_ctx: *const CoapContext = coap_ctx_p as *const CoapContext;
     unsafe {
+        println!("coap_ctx: {:?}", *coap_ctx);
+        println!("buf_len: {:?}", (*coap_ctx).buf_len);
+        println!("packet payload len: {:?}", (*(*coap_ctx).pkt.0).payload_len);
         return riot_sys::coap_opt_finish((*coap_ctx).pkt.0, flags_u as u16) as u64;
     }
 }
@@ -204,6 +213,9 @@ pub fn bpf_coap_add_format(
 ) -> u64 {
     let coap_ctx: *const CoapContext = coap_ctx_p as *const CoapContext;
     unsafe {
+        println!("coap_ctx: {:?}", *coap_ctx);
+        println!("buf_len: {:?}", (*coap_ctx).buf_len);
+        println!("packet payload len: {:?}", (*(*coap_ctx).pkt.0).payload_len);
         // Again the type cast hacking is needed because we are using the function
         // from the inline module.
         return riot_sys::inline::coap_opt_add_format(
@@ -240,12 +252,40 @@ pub fn bpf_ztimer_now(unused1: u64, unused2: u64, unused3: u64, unused4: u64, un
     now as u64
 }
 
+/*
+/* Format functions - implementation */
+pub fn bpf_fmt_s16_dfp(out_: u64, val: u64, fp_digits: u64, unused4: u64, unused5: u64) -> u64 {
+{
+    (void)f12r;
+    (void)a4;
+    (void)a5;
+
+    char *out = (char*)(intptr_t)out_p;
+    size_t res = fmt_s16_dfp(out, (int16_t)val, (int)fp_digits);
+    return (uint32_t)res;
+}
+
+pub fn bpf_fmt_u32_dec(f12r_t *f12r, uint32_t out_p, uint32_t val, uint32_t a3, uint32_t a4, uint32_t a5)
+{
+    (void)f12r;
+    (void)a3;
+    (void)a4;
+    (void)a5;
+
+    char *out = (char*)(intptr_t)out_p;
+    size_t res = fmt_u32_dec(out, (uint32_t)val);
+    return (uint32_t)res;
+}
+*/
+
+
 /// List of all helpers together with their corresponding numbers (used
 /// directly as function pointers in the compiled eBPF bytecode).
-pub const ALL_HELPERS: [(u32, fn(u64, u64, u64, u64, u64) -> u64); 12] = [
+pub const ALL_HELPERS: [(u32, fn(u64, u64, u64, u64, u64) -> u64); 13] = [
     // Print/debug helper functions
     (BPF_DEBUG_PRINT_IDX, bpf_print_debug),
     (BPF_PRINTF_IDX, bpf_printf),
+    (BPF_MEMCPY_IDX, bpf_memcpy),
     // Time(r) functions
     (BPF_NOW_MS_IDX, bpf_now_ms),
     (BPF_ZTIMER_NOW_IDX, bpf_ztimer_now),
@@ -258,6 +298,8 @@ pub const ALL_HELPERS: [(u32, fn(u64, u64, u64, u64, u64) -> u64); 12] = [
     (BPF_COAP_OPT_FINISH_IDX, bpf_coap_opt_finish),
     (BPF_COAP_ADD_FORMAT_IDX, bpf_coap_add_format),
     (BPF_COAP_GET_PDU_IDX, bpf_gcoap_resp_init),
+    //(BPF_FMT_S16_DFP_IDX, bpf_fmt_s16_dfp),
+    //(BPF_FMT_U32_DEC_IDX, bpf_fmt_u32_dec),
 ];
 
 pub fn register_all(vm: &mut rbpf::EbpfVmFixedMbuff) {
