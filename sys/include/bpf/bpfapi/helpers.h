@@ -21,6 +21,18 @@ extern "C" {
 
 //typedef signed ssize_t;
 
+// Added this to make the FC implementation accept equivalent print macros as
+// the rBPF one.
+// Macro allowing for printing formatted strings without having to separately
+// declare the format char[]. The do-while is needed in case the macro is invoked
+// after an if statement without braces.
+#define print(format, ...)                                                     \
+do {                                                                           \
+    char fmt[] = format;                                                       \
+    bpf_printf(fmt, __VA_ARGS__);                                              \
+} while(0);
+
+
 
 /**
  * Opaque dummy type saul registration

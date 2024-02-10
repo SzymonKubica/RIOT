@@ -187,6 +187,10 @@ uint32_t f12r_vm_printf(f12r_t *f12r, uint64_t *regs) {
 
   // Not sure why the first and second register aren't used for the function
   // arguments.
+  printf((const char *)(intptr_t)regs[1], (uint32_t *)(intptr_t)regs[2],
+         (uint32_t *)(intptr_t)regs[3], (uint32_t *)(intptr_t)regs[4],
+         (uint32_t *)(intptr_t)regs[5]);
+
   return printf("f12r_vm_printf: 0x%x, 0x%x, 0x%x, 0x%x\n",
                 (uint32_t *)(intptr_t)regs[2], (uint32_t *)(intptr_t)regs[3],
                 (uint32_t *)(intptr_t)regs[4], (uint32_t *)(intptr_t)regs[5]);
