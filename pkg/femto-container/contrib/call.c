@@ -21,6 +21,7 @@
 #include "net/gcoap.h"
 #include "net/nanocoap.h"
 #endif
+#include "log.h"
 #include "fmt.h"
 #include "saul.h"
 #include "saul_reg.h"
@@ -70,7 +71,7 @@ uint32_t f12r_vm_saul_reg_write(f12r_t *f12r, uint64_t *regs) {
   saul_reg_t *dev = (saul_reg_t *)(intptr_t)regs[1];
   phydat_t *data = (phydat_t *)(intptr_t)regs[2];
 
-  printf("bpf_vm_saul_reg_write: dev=%s, data=%d\n", dev->name, data->val[0]);
+  LOG_DEBUG("bpf_vm_saul_reg_write: dev=%s, data=%d\n", dev->name, data->val[0]);
   int res = saul_reg_write(dev, data);
   return (uint32_t)res;
 }
@@ -186,8 +187,9 @@ uint32_t f12r_vm_printf(f12r_t *f12r, uint64_t *regs) {
   (void)f12r;
 
   return printf((const char *)(intptr_t)regs[1], (uint32_t *)(intptr_t)regs[2],
-                (uint32_t *)(intptr_t)regs[3], (uint32_t *)(intptr_t)regs[4],
-                (uint32_t *)(intptr_t)regs[5]);
+         (uint32_t *)(intptr_t)regs[3], (uint32_t *)(intptr_t)regs[4],
+         (uint32_t *)(intptr_t)regs[5]);
+
 }
 
 f12r_call_t f12r_get_external_call(uint32_t num) {
