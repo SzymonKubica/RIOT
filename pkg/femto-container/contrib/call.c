@@ -77,7 +77,8 @@ uint32_t f12r_vm_saul_reg_write(f12r_t *f12r, uint64_t *regs) {
 }
 #endif
 
-#if 0
+typedef bpf_coap_ctx_t f12r_coap_ctx_t;
+
 #ifdef MODULE_GCOAP
 uint32_t f12r_vm_gcoap_resp_init(f12r_t *f12r, uint32_t coap_ctx_p, uint32_t resp_code_u, uint32_t a3, uint32_t a4, uint32_t a5)
 {
@@ -152,10 +153,12 @@ uint32_t f12r_vm_fmt_u32_dec(f12r_t *f12r, uint32_t out_p, uint32_t val, uint32_
     (void)a5;
 
     char *out = (char*)(intptr_t)out_p;
+    printf("%p\n", (void *) out_p);
+    printf("%s\n", out);
     size_t res = fmt_u32_dec(out, (uint32_t)val);
+    printf("%s\n", out);
     return (uint32_t)res;
 }
-#endif
 #endif
 
 #ifdef MODULE_ZTIMER
@@ -206,7 +209,6 @@ f12r_call_t f12r_get_external_call(uint32_t num) {
   case BPF_FUNC_BPF_SAUL_REG_WRITE:
     return &f12r_vm_saul_reg_write;
 #endif
-#if 0
 #ifdef MODULE_GCOAP
         case BPF_FUNC_BPF_GCOAP_RESP_INIT:
             return &f12r_vm_gcoap_resp_init;
@@ -222,7 +224,6 @@ f12r_call_t f12r_get_external_call(uint32_t num) {
             return &f12r_vm_fmt_s16_dfp;
         case BPF_FUNC_BPF_FMT_U32_DEC:
             return &f12r_vm_fmt_u32_dec;
-#endif
 #endif
 #ifdef MODULE_ZTIMER
   case BPF_FUNC_BPF_ZTIMER_NOW:
