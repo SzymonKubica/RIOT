@@ -272,42 +272,38 @@ pub fn bpf_ztimer_periodic_wakeup(
 ) -> u64 {
     let last_wakeup: *mut u32 = last_wakeup as *mut u32;
     let period: u32 = period as u32;
-    unsafe {
-        riot_sys::ztimer_periodic_wakeup(
-            riot_sys::ZTIMER_USEC,
-            last_wakeup,
-            period,
-        )
-    }
+    unsafe { riot_sys::ztimer_periodic_wakeup(riot_sys::ZTIMER_USEC, last_wakeup, period) }
 
     return 0;
 }
 
-/*
 /* Format functions - implementation */
-pub fn bpf_fmt_s16_dfp(out_: u64, val: u64, fp_digits: u64, unused4: u64, unused5: u64) -> u64 {
-{
-    (void)f12r;
-    (void)a4;
-    (void)a5;
 
-    char *out = (char*)(intptr_t)out_p;
-    size_t res = fmt_s16_dfp(out, (int16_t)val, (int)fp_digits);
-    return (uint32_t)res;
+/// Convert 16-bit fixed point number to a decimal string.
+/// Returns the length of the resulting string.
+pub fn bpf_fmt_s16_dfp(out_p: u64, val: u64, fp_digits: u64, unused4: u64, unused5: u64) -> u64 {
+    extern "C" {
+        fn fmt_s16_dfp(out: *mut u8, val: i16, fp_digits: i32) -> usize;
+    }
+
+    let out = out_p as *mut u8;
+    unsafe {
+        return fmt_s16_dfp(out, val as i16, fp_digits as i32) as u64;
+    }
 }
 
-pub fn bpf_fmt_u32_dec(f12r_t *f12r, uint32_t out_p, uint32_t val, uint32_t a3, uint32_t a4, uint32_t a5)
-{
-    (void)f12r;
-    (void)a3;
-    (void)a4;
-    (void)a5;
+/// Convert a uint32 value to decimal string.
+/// Returns the number of characters written to (or needed in) out
+pub fn bpf_fmt_u32_dec(out_p: u64, val: u64, unused3: u64, unused4: u64, unused5: u64) {
+    extern "C" {
+        fn fmt_u32_dec(out: *mut u8, val: u32) -> usize;
+    }
 
-    char *out = (char*)(intptr_t)out_p;
-    size_t res = fmt_u32_dec(out, (uint32_t)val);
-    return (uint32_t)res;
+    let out = out_p as *mut u8;
+    unsafe {
+        return fmt_u32_dec(out, val as u32) as u64;
+    }
 }
-*/
 
 /// List of all helpers together with their corresponding numbers (used
 /// directly as function pointers in the compiled eBPF bytecode).
