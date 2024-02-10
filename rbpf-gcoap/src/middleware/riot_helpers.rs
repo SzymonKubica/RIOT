@@ -294,7 +294,7 @@ pub fn bpf_fmt_s16_dfp(out_p: u64, val: u64, fp_digits: u64, unused4: u64, unuse
 
 /// Convert a uint32 value to decimal string.
 /// Returns the number of characters written to (or needed in) out
-pub fn bpf_fmt_u32_dec(out_p: u64, val: u64, unused3: u64, unused4: u64, unused5: u64) {
+pub fn bpf_fmt_u32_dec(out_p: u64, val: u64, unused3: u64, unused4: u64, unused5: u64) -> u64 {
     extern "C" {
         fn fmt_u32_dec(out: *mut u8, val: u32) -> usize;
     }
@@ -307,7 +307,7 @@ pub fn bpf_fmt_u32_dec(out_p: u64, val: u64, unused3: u64, unused4: u64, unused5
 
 /// List of all helpers together with their corresponding numbers (used
 /// directly as function pointers in the compiled eBPF bytecode).
-pub const ALL_HELPERS: [(u32, fn(u64, u64, u64, u64, u64) -> u64); 14] = [
+pub const ALL_HELPERS: [(u32, fn(u64, u64, u64, u64, u64) -> u64); 16] = [
     // Print/debug helper functions
     (BPF_DEBUG_PRINT_IDX, bpf_print_debug),
     (BPF_PRINTF_IDX, bpf_printf),
@@ -325,8 +325,8 @@ pub const ALL_HELPERS: [(u32, fn(u64, u64, u64, u64, u64) -> u64); 14] = [
     (BPF_COAP_OPT_FINISH_IDX, bpf_coap_opt_finish),
     (BPF_COAP_ADD_FORMAT_IDX, bpf_coap_add_format),
     (BPF_COAP_GET_PDU_IDX, bpf_gcoap_resp_init),
-    //(BPF_FMT_S16_DFP_IDX, bpf_fmt_s16_dfp),
-    //(BPF_FMT_U32_DEC_IDX, bpf_fmt_u32_dec),
+    (BPF_FMT_S16_DFP_IDX, bpf_fmt_s16_dfp),
+    (BPF_FMT_U32_DEC_IDX, bpf_fmt_u32_dec),
 ];
 
 pub fn register_all(vm: &mut rbpf::EbpfVmFixedMbuff) {

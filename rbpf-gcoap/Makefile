@@ -33,6 +33,8 @@ USEMODULE += saul
 USEMODULE += saul_reg
 USEMODULE += saul_default
 
+USEMODULE += fmt
+
 USEMODULE += progress_bar
 
 USEMODULE += vfs
