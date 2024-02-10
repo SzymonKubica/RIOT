@@ -262,6 +262,27 @@ pub fn bpf_ztimer_now(unused1: u64, unused2: u64, unused3: u64, unused4: u64, un
     now as u64
 }
 
+/// Suspend the calling thread until the time (last_wakeup + period)
+pub fn bpf_ztimer_periodic_wakeup(
+    last_wakeup: u64,
+    period: u64,
+    unused3: u64,
+    unused4: u64,
+    unused5: u64,
+) -> u64 {
+    let last_wakeup: *mut u32 = last_wakeup as *mut u32;
+    let period: u32 = period as u32;
+    unsafe {
+        riot_sys::ztimer_periodic_wakeup(
+            riot_sys::ZTIMER_USEC,
+            last_wakeup,
+            period,
+        )
+    }
+
+    return 0;
+}
+
 /*
 /* Format functions - implementation */
 pub fn bpf_fmt_s16_dfp(out_: u64, val: u64, fp_digits: u64, unused4: u64, unused5: u64) -> u64 {
@@ -290,7 +311,7 @@ pub fn bpf_fmt_u32_dec(f12r_t *f12r, uint32_t out_p, uint32_t val, uint32_t a3, 
 
 /// List of all helpers together with their corresponding numbers (used
 /// directly as function pointers in the compiled eBPF bytecode).
-pub const ALL_HELPERS: [(u32, fn(u64, u64, u64, u64, u64) -> u64); 13] = [
+pub const ALL_HELPERS: [(u32, fn(u64, u64, u64, u64, u64) -> u64); 14] = [
     // Print/debug helper functions
     (BPF_DEBUG_PRINT_IDX, bpf_print_debug),
     (BPF_PRINTF_IDX, bpf_printf),
@@ -298,6 +319,7 @@ pub const ALL_HELPERS: [(u32, fn(u64, u64, u64, u64, u64) -> u64); 13] = [
     // Time(r) functions
     (BPF_NOW_MS_IDX, bpf_now_ms),
     (BPF_ZTIMER_NOW_IDX, bpf_ztimer_now),
+    (BPF_ZTIMER_PERIODIC_WAKEUP_IDX, bpf_ztimer_periodic_wakeup),
     // Saul functions
     (BPF_SAUL_REG_FIND_NTH_IDX, bpf_saul_reg_find_nth),
     (BPF_SAUL_REG_FIND_TYPE_IDX, bpf_saul_reg_find_type),
