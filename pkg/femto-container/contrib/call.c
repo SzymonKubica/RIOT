@@ -200,6 +200,8 @@ f12r_call_t f12r_get_external_call(uint32_t num) {
   switch (num) {
   case BPF_FUNC_BPF_PRINTF:
     return &f12r_vm_printf;
+  case BPF_FUNC_BPF_MEMCPY:
+    return &f12r_vm_memcpy;
 #ifdef MODULE_SAUL_REG
   case BPF_FUNC_BPF_SAUL_REG_FIND_NTH:
     return &f12r_vm_saul_reg_find_nth;
