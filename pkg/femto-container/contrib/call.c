@@ -21,8 +21,8 @@
 #include "net/gcoap.h"
 #include "net/nanocoap.h"
 #endif
-#include "log.h"
 #include "fmt.h"
+#include "log.h"
 #include "saul.h"
 #include "saul_reg.h"
 
@@ -33,10 +33,11 @@
 uint32_t f12r_vm_memcpy(f12r_t *f12r, uint64_t *regs) {
   (void)f12r;
 
-  void *dest = (void *)(uintptr_t)regs[0];
-  const void *src = (const void *)(uintptr_t)regs[1];
+  void *dest = (void *)(uintptr_t)regs[1];
+  const void *src = (const void *)(uintptr_t)regs[2];
+  size_t len = (size_t) regs[3];
 
-  return (uintptr_t)memcpy(dest, src, regs[2]);
+  return (uintptr_t)memcpy(dest, src, len);
 }
 
 #ifdef MODULE_SAUL_REG
@@ -71,7 +72,8 @@ uint32_t f12r_vm_saul_reg_write(f12r_t *f12r, uint64_t *regs) {
   saul_reg_t *dev = (saul_reg_t *)(intptr_t)regs[1];
   phydat_t *data = (phydat_t *)(intptr_t)regs[2];
 
-  LOG_DEBUG("bpf_vm_saul_reg_write: dev=%s, data=%d\n", dev->name, data->val[0]);
+  LOG_DEBUG("bpf_vm_saul_reg_write: dev=%s, data=%d\n", dev->name,
+            data->val[0]);
   int res = saul_reg_write(dev, data);
   return (uint32_t)res;
 }
@@ -84,81 +86,74 @@ typedef bpf_coap_ctx_t f12r_coap_ctx_t;
 // The femtocontainer VM calls the function by passing in the pointer to the
 // array of registers and those expect that they will be called with a list of
 // arguments.
-uint32_t f12r_vm_gcoap_resp_init(f12r_t *f12r, uint64_t *regs)
-{
-    (void)f12r;
+uint32_t f12r_vm_gcoap_resp_init(f12r_t *f12r, uint64_t *regs) {
+  (void)f12r;
 
-    uint64_t coap_ctx_p = regs[1];
-    uint64_t resp_code_u = regs[2];
+  uint64_t coap_ctx_p = regs[1];
+  uint64_t resp_code_u = regs[2];
 
-    f12r_coap_ctx_t *coap_ctx = (f12r_coap_ctx_t *)(intptr_t)coap_ctx_p;
-    unsigned resp_code = (unsigned)resp_code_u;
+  f12r_coap_ctx_t *coap_ctx = (f12r_coap_ctx_t *)(intptr_t)coap_ctx_p;
+  unsigned resp_code = (unsigned)resp_code_u;
 
-    gcoap_resp_init(coap_ctx->pkt, coap_ctx->buf, coap_ctx->buf_len, resp_code);
-    return 0;
+  gcoap_resp_init(coap_ctx->pkt, coap_ctx->buf, coap_ctx->buf_len, resp_code);
+  return 0;
 }
 
-uint32_t f12r_vm_coap_add_format(f12r_t *f12r, uint64_t *regs)
-{
-    (void)f12r;
-    uint64_t coap_ctx_p = regs[1];
-    uint64_t format = regs[2];
+uint32_t f12r_vm_coap_add_format(f12r_t *f12r, uint64_t *regs) {
+  (void)f12r;
+  uint64_t coap_ctx_p = regs[1];
+  uint64_t format = regs[2];
 
-    f12r_coap_ctx_t *coap_ctx = (f12r_coap_ctx_t *)(intptr_t)coap_ctx_p;
-    ssize_t res = coap_opt_add_format(coap_ctx->pkt, (uint16_t) format);
-    return (uint32_t)res;
+  f12r_coap_ctx_t *coap_ctx = (f12r_coap_ctx_t *)(intptr_t)coap_ctx_p;
+  ssize_t res = coap_opt_add_format(coap_ctx->pkt, (uint16_t)format);
+  return (uint32_t)res;
 }
 
-uint32_t f12r_vm_coap_opt_finish(f12r_t *f12r, uint64_t *regs)
-{
-    (void)f12r;
+uint32_t f12r_vm_coap_opt_finish(f12r_t *f12r, uint64_t *regs) {
+  (void)f12r;
 
-    uint64_t coap_ctx_p = regs[1];
-    uint64_t flags_u = regs[2];
+  uint64_t coap_ctx_p = regs[1];
+  uint64_t flags_u = regs[2];
 
+  f12r_coap_ctx_t *coap_ctx = (f12r_coap_ctx_t *)(intptr_t)coap_ctx_p;
+  uint16_t flags = (uint16_t)flags_u;
 
-    f12r_coap_ctx_t *coap_ctx = (f12r_coap_ctx_t *)(intptr_t)coap_ctx_p;
-    uint16_t flags = (uint16_t)flags_u;
-
-    ssize_t res = coap_opt_finish(coap_ctx->pkt, flags);
-    return (uint32_t)res;
+  ssize_t res = coap_opt_finish(coap_ctx->pkt, flags);
+  return (uint32_t)res;
 }
 
-uint32_t f12r_vm_coap_get_pdu(f12r_t *f12r, uint64_t *regs)
-{
-    (void)f12r;
+uint32_t f12r_vm_coap_get_pdu(f12r_t *f12r, uint64_t *regs) {
+  (void)f12r;
 
-    uint64_t coap_ctx_p = regs[1];
+  uint64_t coap_ctx_p = regs[1];
 
-    f12r_coap_ctx_t *coap_ctx = (f12r_coap_ctx_t *)(intptr_t)coap_ctx_p;
-    return (uint32_t)(intptr_t)((coap_pkt_t*)coap_ctx->pkt)->payload;
+  f12r_coap_ctx_t *coap_ctx = (f12r_coap_ctx_t *)(intptr_t)coap_ctx_p;
+  return (uint32_t)(intptr_t)((coap_pkt_t *)coap_ctx->pkt)->payload;
 }
 #endif
 
 #ifdef MODULE_FMT
-uint32_t f12r_vm_fmt_s16_dfp(f12r_t *f12r, uint64_t *regs)
-{
-    (void)f12r;
+uint32_t f12r_vm_fmt_s16_dfp(f12r_t *f12r, uint64_t *regs) {
+  (void)f12r;
 
-    uint64_t out_p = regs[1];
-    uint64_t val = regs[2];
-    uint64_t fp_digits = regs[3];
+  uint64_t out_p = regs[1];
+  uint64_t val = regs[2];
+  uint64_t fp_digits = regs[3];
 
-    char *out = (char*)(intptr_t)out_p;
-    size_t res = fmt_s16_dfp(out, (int16_t)val, (int)fp_digits);
-    return (uint32_t)res;
+  char *out = (char *)(intptr_t)out_p;
+  size_t res = fmt_s16_dfp(out, (int16_t)val, (int)fp_digits);
+  return (uint32_t)res;
 }
 
-uint32_t f12r_vm_fmt_u32_dec(f12r_t *f12r, uint64_t *regs)
-{
-    (void)f12r;
+uint32_t f12r_vm_fmt_u32_dec(f12r_t *f12r, uint64_t *regs) {
+  (void)f12r;
 
-    uint64_t out_p = regs[1];
-    uint64_t val = regs[2];
+  uint64_t out_p = regs[1];
+  uint64_t val = regs[2];
 
-    char *out = (char*)(intptr_t)out_p;
-    size_t res = fmt_u32_dec(out, (uint32_t)val);
-    return (uint32_t)res;
+  char *out = (char *)(intptr_t)out_p;
+  size_t res = fmt_u32_dec(out, (uint32_t)val);
+  return (uint32_t)res;
 }
 #endif
 
@@ -191,9 +186,8 @@ uint32_t f12r_vm_printf(f12r_t *f12r, uint64_t *regs) {
   (void)f12r;
 
   return printf((const char *)(intptr_t)regs[1], (uint32_t *)(intptr_t)regs[2],
-         (uint32_t *)(intptr_t)regs[3], (uint32_t *)(intptr_t)regs[4],
-         (uint32_t *)(intptr_t)regs[5]);
-
+                (uint32_t *)(intptr_t)regs[3], (uint32_t *)(intptr_t)regs[4],
+                (uint32_t *)(intptr_t)regs[5]);
 }
 
 f12r_call_t f12r_get_external_call(uint32_t num) {
@@ -213,20 +207,20 @@ f12r_call_t f12r_get_external_call(uint32_t num) {
     return &f12r_vm_saul_reg_write;
 #endif
 #ifdef MODULE_GCOAP
-        case BPF_FUNC_BPF_GCOAP_RESP_INIT:
-            return &f12r_vm_gcoap_resp_init;
-        case BPF_FUNC_BPF_COAP_OPT_FINISH:
-            return &f12r_vm_coap_opt_finish;
-        case BPF_FUNC_BPF_COAP_ADD_FORMAT:
-            return &f12r_vm_coap_add_format;
-        case BPF_FUNC_BPF_COAP_GET_PDU:
-            return &f12r_vm_coap_get_pdu;
+  case BPF_FUNC_BPF_GCOAP_RESP_INIT:
+    return &f12r_vm_gcoap_resp_init;
+  case BPF_FUNC_BPF_COAP_OPT_FINISH:
+    return &f12r_vm_coap_opt_finish;
+  case BPF_FUNC_BPF_COAP_ADD_FORMAT:
+    return &f12r_vm_coap_add_format;
+  case BPF_FUNC_BPF_COAP_GET_PDU:
+    return &f12r_vm_coap_get_pdu;
 #endif
 #ifdef MODULE_FMT
-        case BPF_FUNC_BPF_FMT_S16_DFP:
-            return &f12r_vm_fmt_s16_dfp;
-        case BPF_FUNC_BPF_FMT_U32_DEC:
-            return &f12r_vm_fmt_u32_dec;
+  case BPF_FUNC_BPF_FMT_S16_DFP:
+    return &f12r_vm_fmt_s16_dfp;
+  case BPF_FUNC_BPF_FMT_U32_DEC:
+    return &f12r_vm_fmt_u32_dec;
 #endif
 #ifdef MODULE_ZTIMER
   case BPF_FUNC_BPF_ZTIMER_NOW:
