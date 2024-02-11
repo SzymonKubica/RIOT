@@ -329,7 +329,21 @@ pub const ALL_HELPERS: [(u32, fn(u64, u64, u64, u64, u64) -> u64); 16] = [
     (BPF_FMT_U32_DEC_IDX, bpf_fmt_u32_dec),
 ];
 
+/// Registers all helpers provided by Femto-Container VM.
 pub fn register_all(vm: &mut rbpf::EbpfVmFixedMbuff) {
+    for (id, helper) in ALL_HELPERS {
+        vm.register_helper(id, helper);
+    }
+}
+
+/// Registers all helpers provided by Femto-Container VM.
+pub fn register_all_raw_vm(vm: &mut rbpf::EbpfVmRaw) {
+    for (id, helper) in ALL_HELPERS {
+        vm.register_helper(id, helper);
+    }
+}
+
+pub fn register_all_vm_mem(vm: &mut rbpf::EbpfVmMbuff) {
     for (id, helper) in ALL_HELPERS {
         vm.register_helper(id, helper);
     }

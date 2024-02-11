@@ -6,6 +6,8 @@ mod suit_pull_endpoint;
 pub use miscellaneous::handle_riot_board;
 pub use miscellaneous::handle_console_write;
 pub use bpf_endpoints::handle_bytecode_load;
+pub use bpf_endpoints::handle_rbpf_execution_on_coap_packet;
 pub use femtocontainer_endpoints::handle_femtocontainer_execution;
+pub use femtocontainer_endpoints::handle_femtocontainer_execution_on_coap_packet;
 pub use benchmark_endpoint::handle_benchmark;
 pub use suit_pull_endpoint::handle_suit_pull;

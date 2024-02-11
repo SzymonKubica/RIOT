@@ -4,7 +4,7 @@ use core::convert::TryInto;
 use riot_wrappers::cstr::cstr;
 use riot_wrappers::{gcoap, gnrc, mutex::Mutex, riot_sys, stdio::println, thread, ztimer};
 
-use crate::handlers::handle_benchmark;
+use crate::handlers::{handle_benchmark, handle_femtocontainer_execution_on_coap_packet, handle_rbpf_execution_on_coap_packet};
 use crate::handlers::handle_bytecode_load;
 use crate::handlers::handle_console_write;
 use crate::handlers::handle_suit_pull;
@@ -29,15 +29,14 @@ pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
         &mut riot_board_handler,
     );
 
-    let mut bytecode_handler = riot_wrappers::coap_handler::GcoapHandler(handle_bytecode_load());
+    let mut bytecode_handler = handle_rbpf_execution_on_coap_packet();
     let mut bytecode_listener = gcoap::SingleHandlerListener::new(
         cstr!("/rbpf/exec"),
         riot_sys::COAP_POST,
         &mut bytecode_handler,
     );
 
-    let mut femtocontainer_handler =
-        riot_wrappers::coap_handler::GcoapHandler(handle_femtocontainer_execution());
+    let mut femtocontainer_handler = handle_femtocontainer_execution_on_coap_packet();
     let mut femtocontainer_listener = gcoap::SingleHandlerListener::new(
         cstr!("/femto-container/exec"),
         riot_sys::COAP_POST,

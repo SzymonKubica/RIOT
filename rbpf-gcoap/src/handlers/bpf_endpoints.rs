@@ -5,13 +5,115 @@ use coap_handler_implementations::SimpleRendered;
 use coap_message::{MessageOption, MutableWritableMessage, ReadableMessage};
 use core::convert::TryInto;
 use core::fmt;
+use riot_wrappers::coap_message::ResponseMessage;
+use riot_wrappers::gcoap::PacketBuffer;
 use riot_wrappers::{cstr::cstr, stdio::println, ztimer::Clock};
 
 use crate::rbpf;
 use crate::rbpf::helpers;
 // The riot_sys reimported through the wrappers doesn't seem to work.
-use riot_sys;
 use crate::middleware;
+use riot_sys;
+
+struct RbpfCoapHandler {}
+
+impl riot_wrappers::gcoap::Handler for RbpfCoapHandler {
+    fn handle(&mut self, pkt: &mut PacketBuffer) -> isize {
+        let request_data = self.extract_request_data(pkt);
+        let mut lengthwrapped = ResponseMessage::new(pkt);
+        self.build_response(&mut lengthwrapped, request_data);
+        lengthwrapped.finish()
+    }
+}
+
+impl RbpfCoapHandler {
+    fn extract_request_data(&mut self, request: &mut PacketBuffer) -> u8 {
+        extern "C" {
+            /// Responsible for loading the bytecode from the SUIT ram storage.
+            /// The application bytes are written into the buffer.
+            fn load_bytes_from_suit_storage(buffer: *mut u8, location: *const char) -> u32;
+            fn copy_packet(buffer: *mut PacketBuffer, mem: *mut u8);
+        }
+
+        if request.code() as u8 != coap_numbers::code::POST {
+            return coap_numbers::code::METHOD_NOT_ALLOWED;
+        }
+
+        // Request payload determines from which SUIT storage slot we are
+        // reading the bytecode.
+        let Ok(s) = core::str::from_utf8(request.payload()) else {
+            return coap_numbers::code::BAD_REQUEST;
+        };
+
+        println!("Request payload received: {}", s);
+
+        // The SUIT ram storage for the program is 2048 bytes large so we won't
+        // be able to load larger images. Hence 2048 byte buffer is sufficient
+        let mut buffer: [u8; 2048] = [0; 2048];
+        let mut length = 0;
+
+        let mut location = format!(".ram.{s}\0");
+
+        // Memory for the packet.
+        let mut mem: [u8; 2048] = [0; 2048];
+        unsafe { copy_packet(request, mem.as_mut_ptr() as *mut u8) };
+
+        println!("Packet copy: {:?}", mem);
+        unsafe {
+            println!("Packet copy address: {:?}", mem.as_ptr() as u64);
+        }
+
+        unsafe {
+            let buffer_ptr = buffer.as_mut_ptr();
+            let location_ptr = location.as_ptr() as *const char;
+            length = load_bytes_from_suit_storage(buffer_ptr, location_ptr);
+        };
+
+        let program = &buffer[..(length as usize)];
+        println!(
+            "Read program bytecode from SUIT storage location {}:\n {:?}",
+            location,
+            program.to_vec()
+        );
+
+        // Initialise the VM operating on a fixed memory buffer.
+        //let mut vm = rbpf::EbpfVmRaw::new(Some(program)).unwrap();
+        let mut vm = rbpf::EbpfVmRaw::new(Some(program)).unwrap();
+
+        // We register a helper function, that can be called by the program, into
+        // the VM.
+        vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf)
+            .unwrap();
+
+        middleware::register_all_raw_vm(&mut vm);
+
+        // This unsafe hacking is needed as the ztimer_now call expects to get an
+        // argument of type riot_sys::inline::ztimer_clock_t but the ztimer_clock_t
+        // ZTIMER_USEC that we get from riot_sys has type riot_sys::ztimer_clock_t.
+        let clock = unsafe { riot_sys::ZTIMER_USEC as *mut riot_sys::inline::ztimer_clock_t };
+        let start: u32 = unsafe { riot_sys::inline::ztimer_now(clock) };
+        let res = vm.execute_program(&mut mem).unwrap();
+        let end: u32 = unsafe { riot_sys::inline::ztimer_now(clock) };
+
+        println!("Program returned: {:?} ({:#x})", res, res);
+        println!("Execution time: {} [us]", end - start);
+
+        coap_numbers::code::CHANGED
+    }
+
+    fn estimate_length(&mut self, _request: &u8) -> usize {
+        1
+    }
+
+    fn build_response(&mut self, response: &mut impl MutableWritableMessage, request: u8) {
+        response.set_code(request.try_into().map_err(|_| ()).unwrap());
+        response.set_payload(b"Success");
+    }
+}
+
+pub fn handle_rbpf_execution_on_coap_packet() -> impl riot_wrappers::gcoap::Handler {
+    RbpfCoapHandler {}
+}
 
 struct BpfBytecodeLoader {}
 
@@ -76,7 +178,6 @@ impl coap_handler::Handler for BpfBytecodeLoader {
 
         unsafe {
             let buffer_ptr = buffer.as_mut_ptr();
-            // TODO: add ability to select between ram 0 and 1
             let location_ptr = location.as_ptr() as *const char;
             length = load_bytes_from_suit_storage(buffer_ptr, location_ptr);
         };
