@@ -35,7 +35,7 @@ uint32_t f12r_vm_memcpy(f12r_t *f12r, uint64_t *regs) {
 
   void *dest = (void *)(uintptr_t)regs[1];
   const void *src = (const void *)(uintptr_t)regs[2];
-  size_t len = (size_t) regs[3];
+  size_t len = (size_t)regs[3];
 
   return (uintptr_t)memcpy(dest, src, len);
 }
@@ -43,7 +43,6 @@ uint32_t f12r_vm_memcpy(f12r_t *f12r, uint64_t *regs) {
 #ifdef MODULE_SAUL_REG
 uint32_t f12r_vm_saul_reg_find_nth(f12r_t *f12r, uint64_t *regs) {
   (void)f12r;
-  // The function argument seems to be inserted in regs 1
   int pos = (int)regs[1];
   saul_reg_t *reg = saul_reg_find_nth(pos);
   return (uint32_t)(intptr_t)reg;
