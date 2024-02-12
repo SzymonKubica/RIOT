@@ -111,7 +111,7 @@ impl RbpfCoapHandler {
     }
 }
 
-pub fn handle_rbpf_execution_on_coap_packet() -> impl riot_wrappers::gcoap::Handler {
+pub fn execute_rbpf_on_coap_pkt() -> impl riot_wrappers::gcoap::Handler {
     RbpfCoapHandler {}
 }
 

@@ -31,7 +31,7 @@ impl coap_handler::Handler for RiotBoardHandler {
     }
 }
 
-pub fn handle_riot_board() -> impl coap_handler::Handler {
+pub fn handle_riot_board_query() -> impl coap_handler::Handler {
     RiotBoardHandler
 }
 
@@ -67,6 +67,6 @@ impl coap_handler::Handler for ConsoleWrite {
     }
 }
 
-pub fn handle_console_write() -> impl coap_handler::Handler {
+pub fn handle_console_write_request() -> impl coap_handler::Handler {
     ConsoleWrite
 }

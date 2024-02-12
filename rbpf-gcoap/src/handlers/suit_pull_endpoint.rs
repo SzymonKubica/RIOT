@@ -64,6 +64,6 @@ impl coap_handler::Handler for SuitPullHandler {
     }
 }
 
-pub fn handle_suit_pull() -> impl coap_handler::Handler {
+pub fn handle_suit_pull_request() -> impl coap_handler::Handler {
     SuitPullHandler {}
 }
