@@ -105,9 +105,9 @@ uint32_t execute_femtocontainer_vm(uint8_t *payload, size_t payload_len,
     uint32_t execution_time = end - start;
     *return_value = result;
 
-    LOG_INFO("Program returned: %d (%x)", result, result);
-    LOG_INFO("Exit code: %d", res);
-    LOG_INFO("Execution time: %d [us]", execution_time);
+    LOG_INFO("Program returned: %d (%x)\n", result, result);
+    LOG_INFO("Exit code: %d\n", res);
+    LOG_INFO("Execution time: %d [us]\n", execution_time);
 
     return execution_time;
 }
@@ -186,9 +186,9 @@ uint32_t execute_fc_vm_on_coap_pkt(pkt_buf *ctx, char *location,
     uint32_t execution_time = end - start;
     *return_value = result;
 
-    LOG_INFO("Program returned: %d (%x)", result, result);
-    LOG_INFO("Exit code: %d", res);
-    LOG_INFO("Execution time: %d [us]", execution_time);
+    LOG_INFO("Program returned: %d (%x)\n", result, result);
+    LOG_INFO("Exit code: %d\n", res);
+    LOG_INFO("Execution time: %d [us]\n", execution_time);
 
 
     return execution_time;

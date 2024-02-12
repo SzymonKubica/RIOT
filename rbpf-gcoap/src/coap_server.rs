@@ -4,7 +4,7 @@ use core::convert::TryInto;
 use riot_wrappers::cstr::cstr;
 use riot_wrappers::{
     coap_handler::GcoapHandler, gcoap, gcoap::SingleHandlerListener, gnrc, mutex::Mutex, riot_sys,
-    stdio::println, thread, ztimer,
+    stdio::println, thread, ztimer, gpio,
 };
 
 use crate::handlers::{
@@ -13,6 +13,11 @@ use crate::handlers::{
 };
 
 pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
+
+
+
+
+
     // Each endpoint needs a request handler defined as its own struct implemneting
     // the Handler trait. Then we need to initialise a listener for that endpoint
     // and add it as a resource in the gcoap scope.
@@ -78,6 +83,7 @@ pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
 
         let sectimer = ztimer::Clock::sec();
         sectimer.sleep_ticks(2);
+        print_network_interfaces();
 
         // Sending main thread to sleep; can't return or the Gcoap handler would need to be
         // deregistered (which it can't).
