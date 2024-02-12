@@ -12,7 +12,7 @@ use crate::rbpf::helpers;
 // The riot_sys reimported through the wrappers doesn't seem to work.
 use riot_sys;
 
-struct SuitPullHandler {}
+pub struct SuitPullHandler {}
 
 impl coap_handler::Handler for SuitPullHandler {
     type RequestData = u8;
@@ -64,6 +64,3 @@ impl coap_handler::Handler for SuitPullHandler {
     }
 }
 
-pub fn handle_suit_pull() -> impl coap_handler::Handler {
-    SuitPullHandler {}
-}
