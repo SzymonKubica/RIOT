@@ -25,6 +25,7 @@ pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
     let mut bytecode_handler = handle_rbpf_execution_on_coap_packet();
     let mut bench_handler = GcoapHandler(handle_benchmark());
     let mut suit_pull_handler = GcoapHandler(handle_suit_pull());
+    let mut femtocontainer_handler = handle_femtocontainer_execution_on_coap_packet();
 
     let mut console_write_listener = SingleHandlerListener::new(
         cstr!("/console/write"),
