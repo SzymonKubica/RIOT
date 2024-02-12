@@ -3,7 +3,7 @@ use coap_message::{MessageOption, MutableWritableMessage, ReadableMessage};
 use core::convert::TryInto;
 use riot_wrappers::{stdio::println, riot_sys};
 
-pub struct RiotBoardHandler;
+struct RiotBoardHandler;
 impl coap_handler::Handler for RiotBoardHandler {
     type RequestData = u8;
 
@@ -31,7 +31,11 @@ impl coap_handler::Handler for RiotBoardHandler {
     }
 }
 
-pub struct ConsoleWrite;
+pub fn handle_riot_board() -> dyn coap_handler::Handler {
+    RiotBoardHandler
+}
+
+struct ConsoleWrite;
 impl coap_handler::Handler for ConsoleWrite {
     type RequestData = u8;
 
@@ -63,3 +67,6 @@ impl coap_handler::Handler for ConsoleWrite {
     }
 }
 
+pub fn handle_console_write() -> dyn coap_handler::Handler {
+    ConsoleWrite
+}

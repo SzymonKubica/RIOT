@@ -7,7 +7,6 @@ use core::convert::TryInto;
 use core::fmt;
 use riot_wrappers::coap_message::ResponseMessage;
 use riot_wrappers::gcoap::PacketBuffer;
-use riot_wrappers::gcoap;
 use riot_wrappers::{cstr::cstr, stdio::println, ztimer::Clock};
 
 use crate::rbpf;
@@ -16,7 +15,7 @@ use crate::rbpf::helpers;
 use crate::middleware;
 use riot_sys;
 
-pub struct RbpfCoapHandler {}
+struct RbpfCoapHandler {}
 
 impl riot_wrappers::gcoap::Handler for RbpfCoapHandler {
     fn handle(&mut self, pkt: &mut PacketBuffer) -> isize {
@@ -59,7 +58,7 @@ impl RbpfCoapHandler {
         let mut mem: [u8; 2048] = [0; 2048];
         unsafe { copy_packet(request, mem.as_mut_ptr() as *mut u8) };
 
-        //println!("Packet copy: {:?}", mem);
+        println!("Packet copy: {:?}", mem);
         unsafe {
             println!("Packet copy address: {:?}", mem.as_ptr() as u64);
         }
@@ -112,7 +111,11 @@ impl RbpfCoapHandler {
     }
 }
 
-pub struct BpfBytecodeLoader {}
+pub fn handle_rbpf_execution_on_coap_packet() -> impl riot_wrappers::gcoap::Handler {
+    RbpfCoapHandler {}
+}
+
+struct BpfBytecodeLoader {}
 
 impl coap_handler::Handler for BpfBytecodeLoader {
     type RequestData = u8;
@@ -212,6 +215,10 @@ impl coap_handler::Handler for BpfBytecodeLoader {
         response.set_code(request.try_into().map_err(|_| ()).unwrap());
         response.set_payload(b"Success");
     }
+}
+
+pub fn handle_bytecode_load() -> impl coap_handler::Handler {
+    BpfBytecodeLoader {}
 }
 
 struct Packet {

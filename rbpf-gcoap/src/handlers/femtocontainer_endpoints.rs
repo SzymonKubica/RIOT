@@ -9,14 +9,13 @@ use core::fmt;
 use riot_wrappers::coap_message::ResponseMessage;
 use riot_wrappers::gcoap::PacketBuffer;
 use riot_wrappers::{cstr::cstr, stdio::println, ztimer::Clock};
-use riot_wrappers::gcoap;
 
 use crate::rbpf;
 use crate::rbpf::helpers;
 // The riot_sys reimported through the wrappers doesn't seem to work.
 use riot_sys;
 
-pub struct FemtoContainerExecutor {}
+struct FemtoContainerExecutor {}
 
 const PACKET_TEMPLATE_SIZE: usize = 54;
 
@@ -84,8 +83,12 @@ impl coap_handler::Handler for FemtoContainerExecutor {
     }
 }
 
+pub fn handle_femtocontainer_execution() -> impl coap_handler::Handler {
+    FemtoContainerExecutor {}
+}
+
 // Responsible for executing the femtocontainer VM given a CoAP packet.
-pub struct FemtoContainerCoAPExecutor {}
+struct FemtoContainerCoAPExecutor {}
 
 impl FemtoContainerCoAPExecutor {
     fn extract_request_data(&mut self, request: &mut PacketBuffer) -> u8 {
@@ -139,3 +142,6 @@ impl riot_wrappers::gcoap::Handler for FemtoContainerCoAPExecutor {
     }
 }
 
+pub fn handle_femtocontainer_execution_on_coap_packet() -> impl riot_wrappers::gcoap::Handler {
+    FemtoContainerCoAPExecutor {}
+}
