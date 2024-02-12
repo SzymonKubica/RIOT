@@ -69,11 +69,11 @@ impl coap_handler::Handler for FemtoContainerExecutionHandler {
         let message_bytes = checksum_message.as_bytes();
 
         unsafe {
-            execution_time = execute_femtocontainer_vm(
+            self.execution_time = execute_femtocontainer_vm(
                 message_bytes.as_ptr(),
                 message_bytes.len(),
                 location.as_ptr() as *const char,
-                result.as_mut_ptr() as *mut i64,
+                &mut self.result as *mut i64,
             );
         }
 
@@ -90,11 +90,11 @@ impl coap_handler::Handler for FemtoContainerExecutionHandler {
         request: Self::RequestData,
     ) {
         response.set_code(request.try_into().map_err(|_| ()).unwrap());
-        let response = format!(
+        let resp = format!(
             "{{\"execution_time\": {}, \"result\": {}}}",
             self.execution_time, self.result
         );
-        response.set_payload(response.as_bytes());
+        response.set_payload(resp.as_bytes());
     }
 }
 
@@ -109,7 +109,7 @@ pub fn handle_femtocontainer_execution() -> impl coap_handler::Handler {
 /// operates on a CoAP packet.
 struct FemtoContainerCoAPExecutor {
     execution_time: u32,
-    result: u32,
+    result: i64,
 }
 
 impl FemtoContainerCoAPExecutor {
@@ -129,10 +129,10 @@ impl FemtoContainerCoAPExecutor {
         let mut location = format!(".ram.{s}\0");
 
         unsafe {
-            execution_time = execute_fc_vm_on_coap_pkt(
+            self.execution_time = execute_fc_vm_on_coap_pkt(
                 request as *mut PacketBuffer,
                 location.as_ptr() as *const char,
-                result.as_mut_ptr() as *mut i64,
+                &mut self.result as *mut i64,
             );
         }
 
@@ -145,11 +145,11 @@ impl FemtoContainerCoAPExecutor {
 
     fn build_response(&mut self, response: &mut impl MutableWritableMessage, request: u8) {
         response.set_code(request.try_into().map_err(|_| ()).unwrap());
-        let response = format!(
+        let resp = format!(
             "{{\"execution_time\": {}, \"result\": {}}}",
             self.execution_time, self.result
         );
-        response.set_payload(response.as_bytes());
+        response.set_payload(resp.as_bytes());
     }
 }
 
