@@ -58,7 +58,7 @@ impl RbpfCoapHandler {
         let mut mem: [u8; 2048] = [0; 2048];
         unsafe { copy_packet(request, mem.as_mut_ptr() as *mut u8) };
 
-        println!("Packet copy: {:?}", mem);
+        //println!("Packet copy: {:?}", mem);
         unsafe {
             println!("Packet copy address: {:?}", mem.as_ptr() as u64);
         }
