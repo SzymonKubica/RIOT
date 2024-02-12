@@ -105,7 +105,7 @@ impl RbpfCoapExecutor {
         let end: u32 = unsafe { riot_sys::inline::ztimer_now(clock) };
         if let Ok(res) = result {
             println!("Program returned: {:?} ({:#x})", res, res);
-            self.result = result as i64;
+            self.result = res as i64;
         } else {
             println!("Program returned: {:?}", result);
             self.result = -1;
