@@ -183,10 +183,11 @@ pub fn bpf_gcoap_resp_init(
     let resp_code = resp_code as u32;
 
     unsafe {
-        println!("coap_ctx: {:?}", *coap_ctx);
-        println!("buf_len: {:?}", (*coap_ctx).buf_len);
-        println!("packet payload len: {:?}", (*(*coap_ctx).pkt.0).payload_len);
-        println!("resp code: {:?}", resp_code);
+        // TODO: find out how to do debug logging
+        //println!("coap_ctx: {:?}", *coap_ctx);
+        //println!("buf_len: {:?}", (*coap_ctx).buf_len);
+        //println!("packet payload len: {:?}", (*(*coap_ctx).pkt.0).payload_len);
+        //println!("resp code: {:?}", resp_code);
         let res = riot_sys::gcoap_resp_init(
             (*coap_ctx).pkt.0,
             (*coap_ctx).buf.0,
@@ -206,9 +207,9 @@ pub fn bpf_coap_opt_finish(
 ) -> u64 {
     let coap_ctx: *const CoapContext = coap_ctx_p as *const CoapContext;
     unsafe {
-        println!("coap_ctx: {:?}", *coap_ctx);
-        println!("buf_len: {:?}", (*coap_ctx).buf_len);
-        println!("packet payload len: {:?}", (*(*coap_ctx).pkt.0).payload_len);
+        //println!("coap_ctx: {:?}", *coap_ctx);
+        //println!("buf_len: {:?}", (*coap_ctx).buf_len);
+        //println!("packet payload len: {:?}", (*(*coap_ctx).pkt.0).payload_len);
         return riot_sys::coap_opt_finish((*coap_ctx).pkt.0, flags_u as u16) as u64;
     }
 }
@@ -223,9 +224,9 @@ pub fn bpf_coap_add_format(
 ) -> u64 {
     let coap_ctx: *const CoapContext = coap_ctx_p as *const CoapContext;
     unsafe {
-        println!("coap_ctx: {:?}", *coap_ctx);
-        println!("buf_len: {:?}", (*coap_ctx).buf_len);
-        println!("packet payload len: {:?}", (*(*coap_ctx).pkt.0).payload_len);
+        //println!("coap_ctx: {:?}", *coap_ctx);
+        //println!("buf_len: {:?}", (*coap_ctx).buf_len);
+        //println!("packet payload len: {:?}", (*(*coap_ctx).pkt.0).payload_len);
         // Again the type cast hacking is needed because we are using the function
         // from the inline module.
         return riot_sys::inline::coap_opt_add_format(

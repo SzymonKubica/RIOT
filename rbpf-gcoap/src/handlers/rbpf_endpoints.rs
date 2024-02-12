@@ -9,15 +9,29 @@ use riot_wrappers::coap_message::ResponseMessage;
 use riot_wrappers::gcoap::PacketBuffer;
 use riot_wrappers::{cstr::cstr, stdio::println, ztimer::Clock};
 
+use crate::middleware;
 use crate::rbpf;
 use crate::rbpf::helpers;
 // The riot_sys reimported through the wrappers doesn't seem to work.
-use crate::middleware;
 use riot_sys;
 
-struct RbpfCoapHandler {}
+extern "C" {
+    /// Responsible for loading the bytecode from the SUIT ram storage.
+    /// The application bytes are written into the buffer.
+    fn load_bytes_from_suit_storage(buffer: *mut u8, location: *const char) -> u32;
+    /// Copies all contents of the packet under *ctx into the provided memory region.
+    /// It also recalculates pointers inside of that packet struct so that they point
+    /// to correct offsets in the target memory buffer. This function is needed for
+    /// executing the rBPF VM on raw packet data.
+    fn copy_packet(buffer: *mut PacketBuffer, mem: *mut u8);
+}
 
-impl riot_wrappers::gcoap::Handler for RbpfCoapHandler {
+struct RbpfCoapExecutor {
+    execution_time: u32,
+    result: i64,
+}
+
+impl riot_wrappers::gcoap::Handler for RbpfCoapExecutor {
     fn handle(&mut self, pkt: &mut PacketBuffer) -> isize {
         let request_data = self.extract_request_data(pkt);
         let mut lengthwrapped = ResponseMessage::new(pkt);
@@ -26,15 +40,8 @@ impl riot_wrappers::gcoap::Handler for RbpfCoapHandler {
     }
 }
 
-impl RbpfCoapHandler {
+impl RbpfCoapExecutor {
     fn extract_request_data(&mut self, request: &mut PacketBuffer) -> u8 {
-        extern "C" {
-            /// Responsible for loading the bytecode from the SUIT ram storage.
-            /// The application bytes are written into the buffer.
-            fn load_bytes_from_suit_storage(buffer: *mut u8, location: *const char) -> u32;
-            fn copy_packet(buffer: *mut PacketBuffer, mem: *mut u8);
-        }
-
         if request.code() as u8 != coap_numbers::code::POST {
             return coap_numbers::code::METHOD_NOT_ALLOWED;
         }
@@ -49,38 +56,39 @@ impl RbpfCoapHandler {
 
         // The SUIT ram storage for the program is 2048 bytes large so we won't
         // be able to load larger images. Hence 2048 byte buffer is sufficient
-        let mut buffer: [u8; 2048] = [0; 2048];
+        let mut prog_buf: [u8; 2048] = [0; 2048];
         let mut length = 0;
 
         let mut location = format!(".ram.{s}\0");
 
         // Memory for the packet.
-        let mut mem: [u8; 2048] = [0; 2048];
+        let mut mem: [u8; 512] = [0; 512];
         unsafe { copy_packet(request, mem.as_mut_ptr() as *mut u8) };
 
-        println!("Packet copy: {:?}", mem);
+        println!("Packet copy size: {}", mem.len());
         unsafe {
-            println!("Packet copy address: {:?}", mem.as_ptr() as u64);
+            // Make this debug information
+            //println!("Packet copy address: {:?}", mem.as_ptr() as u64);
         }
 
         unsafe {
-            let buffer_ptr = buffer.as_mut_ptr();
+            let buffer_ptr = prog_buf.as_mut_ptr();
             let location_ptr = location.as_ptr() as *const char;
             length = load_bytes_from_suit_storage(buffer_ptr, location_ptr);
         };
 
-        let program = &buffer[..(length as usize)];
+        let program = &prog_buf[..(length as usize)];
         println!(
-            "Read program bytecode from SUIT storage location {}:\n {:?}",
+            "Loaded program bytecode from SUIT storage location {}, program length: {}",
             location,
-            program.to_vec()
+            program.to_vec().len()
         );
 
         // Initialise the VM operating on a fixed memory buffer.
         //let mut vm = rbpf::EbpfVmRaw::new(Some(program)).unwrap();
         let mut vm = rbpf::EbpfVmRaw::new(Some(program)).unwrap();
 
-        // We register a helper function, that can be called by the program, into
+        // We register a helper function that can be called by the program, into
         // the VM.
         vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf)
             .unwrap();
@@ -90,13 +98,22 @@ impl RbpfCoapHandler {
         // This unsafe hacking is needed as the ztimer_now call expects to get an
         // argument of type riot_sys::inline::ztimer_clock_t but the ztimer_clock_t
         // ZTIMER_USEC that we get from riot_sys has type riot_sys::ztimer_clock_t.
+        println!("Starting rBPf VM execution.");
         let clock = unsafe { riot_sys::ZTIMER_USEC as *mut riot_sys::inline::ztimer_clock_t };
         let start: u32 = unsafe { riot_sys::inline::ztimer_now(clock) };
-        let res = vm.execute_program(&mut mem).unwrap();
+        let result = vm.execute_program(&mut mem);
         let end: u32 = unsafe { riot_sys::inline::ztimer_now(clock) };
+        if let Ok(res) = result {
+            println!("Program returned: {:?} ({:#x})", res, res);
+            self.result = result as i64;
+        } else {
+            println!("Program returned: {:?}", result);
+            self.result = -1;
+        }
 
-        println!("Program returned: {:?} ({:#x})", res, res);
         println!("Execution time: {} [us]", end - start);
+
+        self.execution_time = end - start;
 
         coap_numbers::code::CHANGED
     }
@@ -107,27 +124,31 @@ impl RbpfCoapHandler {
 
     fn build_response(&mut self, response: &mut impl MutableWritableMessage, request: u8) {
         response.set_code(request.try_into().map_err(|_| ()).unwrap());
-        response.set_payload(b"Success");
+        let resp = format!(
+            "{{\"execution_time\": {}, \"result\": {}}}",
+            self.execution_time, self.result
+        );
+        response.set_payload(resp.as_bytes());
     }
 }
 
 pub fn execute_rbpf_on_coap_pkt() -> impl riot_wrappers::gcoap::Handler {
-    RbpfCoapHandler {}
+    RbpfCoapExecutor {
+        execution_time: 0,
+        result: 0,
+    }
 }
 
-struct BpfBytecodeLoader {}
+struct RbpfExecutionHandler {
+    execution_time: u32,
+    result: i64,
+}
 
-impl coap_handler::Handler for BpfBytecodeLoader {
+impl coap_handler::Handler for RbpfExecutionHandler {
     type RequestData = u8;
 
     fn extract_request_data(&mut self, request: &impl ReadableMessage) -> Self::RequestData {
-        extern "C" {
-            /// Responsible for loading the bytecode from the SUIT ram storage.
-            /// The application bytes are written into the buffer.
-            fn load_bytes_from_suit_storage(buffer: *mut u8, location: *const char) -> u32;
-        }
-
-        pub fn perform_checksum(checksum_message: &str, program: &[u8]) {
+        let mut perform_checksum = |checksum_message: &str, program: &[u8]| {
             let message_bytes = checksum_message.as_bytes();
 
             let packet = Packet {
@@ -155,7 +176,9 @@ impl coap_handler::Handler for BpfBytecodeLoader {
 
             println!("Program returned: {:?} ({:#x})", res, res);
             println!("Execution time: {} [us]", end - start);
-        }
+            self.execution_time = end - start;
+            self.result = res as i64;
+        };
 
         if request.code().into() != coap_numbers::code::POST {
             return coap_numbers::code::METHOD_NOT_ALLOWED;
@@ -213,12 +236,19 @@ impl coap_handler::Handler for BpfBytecodeLoader {
         request: Self::RequestData,
     ) {
         response.set_code(request.try_into().map_err(|_| ()).unwrap());
-        response.set_payload(b"Success");
+        let resp = format!(
+            "{{\"execution_time\": {}, \"result\": {}}}",
+            self.execution_time, self.result
+        );
+        response.set_payload(resp.as_bytes());
     }
 }
 
 pub fn handle_bytecode_load() -> impl coap_handler::Handler {
-    BpfBytecodeLoader {}
+    RbpfExecutionHandler {
+        execution_time: 0,
+        result: 0,
+    }
 }
 
 struct Packet {
