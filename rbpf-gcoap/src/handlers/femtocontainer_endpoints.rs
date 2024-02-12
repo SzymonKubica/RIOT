@@ -15,24 +15,35 @@ use crate::rbpf::helpers;
 // The riot_sys reimported through the wrappers doesn't seem to work.
 use riot_sys;
 
-struct FemtoContainerExecutor {}
+extern "C" {
+    /// Executes a femtocontainer VM where the eBPF program has access
+    /// to the pointer to the CoAP packet.
+    fn execute_fc_vm_on_coap_pkt(
+        pkt: *mut PacketBuffer,
+        location: *const char,
+        return_value: *mut i64,
+    ) -> u32;
+    /// Responsible for loading the bytecode from the SUIT ram storage.
+    /// The application bytes are written into the buffer.
+    fn execute_femtocontainer_vm(
+        payload: *const u8,
+        payload_len: usize,
+        location: *const char,
+        return_value: *mut i64,
+    ) -> u32;
+}
 
-const PACKET_TEMPLATE_SIZE: usize = 54;
+/// Executes a FemtoContainer VM by passing in a struct containing a large string
+/// message which can then be used for e.g. benchmarking checksum algorithms.
+struct FemtoContainerExecutionHandler {
+    execution_time: u32,
+    result: i64,
+}
 
-impl coap_handler::Handler for FemtoContainerExecutor {
+impl coap_handler::Handler for FemtoContainerExecutionHandler {
     type RequestData = u8;
 
     fn extract_request_data(&mut self, request: &impl ReadableMessage) -> Self::RequestData {
-        extern "C" {
-            /// Responsible for loading the bytecode from the SUIT ram storage.
-            /// The application bytes are written into the buffer.
-            fn execute_femtocontainer_vm(
-                payload: *const u8,
-                payload_len: usize,
-                location: *const char,
-            ) -> u32;
-        }
-
         if request.code().into() != coap_numbers::code::POST {
             return coap_numbers::code::METHOD_NOT_ALLOWED;
         }
@@ -57,12 +68,12 @@ impl coap_handler::Handler for FemtoContainerExecutor {
 
         let message_bytes = checksum_message.as_bytes();
 
-        let mut execution_time = 0;
         unsafe {
             execution_time = execute_femtocontainer_vm(
                 message_bytes.as_ptr(),
                 message_bytes.len(),
                 location.as_ptr() as *const char,
+                result.as_mut_ptr() as *mut i64,
             );
         }
 
@@ -79,26 +90,30 @@ impl coap_handler::Handler for FemtoContainerExecutor {
         request: Self::RequestData,
     ) {
         response.set_code(request.try_into().map_err(|_| ()).unwrap());
-        response.set_payload(b"Success");
+        let response = format!(
+            "{{\"execution_time\": {}, \"result\": {}}}",
+            self.execution_time, self.result
+        );
+        response.set_payload(response.as_bytes());
     }
 }
 
 pub fn handle_femtocontainer_execution() -> impl coap_handler::Handler {
-    FemtoContainerExecutor {}
+    FemtoContainerExecutionHandler {
+        execution_time: 0,
+        result: 0,
+    }
 }
 
-// Responsible for executing the femtocontainer VM given a CoAP packet.
-struct FemtoContainerCoAPExecutor {}
+/// Responsible for executing the femtocontainer VM running a program which
+/// operates on a CoAP packet.
+struct FemtoContainerCoAPExecutor {
+    execution_time: u32,
+    result: u32,
+}
 
 impl FemtoContainerCoAPExecutor {
     fn extract_request_data(&mut self, request: &mut PacketBuffer) -> u8 {
-        extern "C" {
-            fn execute_femtocontainer_vm_coap_packet(
-                pkt: *mut PacketBuffer,
-                location: *const char,
-            ) -> u32;
-        }
-
         if request.code() as u8 != coap_numbers::code::POST {
             return coap_numbers::code::METHOD_NOT_ALLOWED;
         }
@@ -114,9 +129,10 @@ impl FemtoContainerCoAPExecutor {
         let mut location = format!(".ram.{s}\0");
 
         unsafe {
-            let execution_time = execute_femtocontainer_vm_coap_packet(
+            execution_time = execute_fc_vm_on_coap_pkt(
                 request as *mut PacketBuffer,
                 location.as_ptr() as *const char,
+                result.as_mut_ptr() as *mut i64,
             );
         }
 
@@ -129,7 +145,11 @@ impl FemtoContainerCoAPExecutor {
 
     fn build_response(&mut self, response: &mut impl MutableWritableMessage, request: u8) {
         response.set_code(request.try_into().map_err(|_| ()).unwrap());
-        response.set_payload(b"Success");
+        let response = format!(
+            "{{\"execution_time\": {}, \"result\": {}}}",
+            self.execution_time, self.result
+        );
+        response.set_payload(response.as_bytes());
     }
 }
 
@@ -142,6 +162,9 @@ impl riot_wrappers::gcoap::Handler for FemtoContainerCoAPExecutor {
     }
 }
 
-pub fn handle_femtocontainer_execution_on_coap_packet() -> impl riot_wrappers::gcoap::Handler {
-    FemtoContainerCoAPExecutor {}
+pub fn execute_fc_on_coap_pkt() -> impl riot_wrappers::gcoap::Handler {
+    FemtoContainerCoAPExecutor {
+        execution_time: 0,
+        result: 0,
+    }
 }

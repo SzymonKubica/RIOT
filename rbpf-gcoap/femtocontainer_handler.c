@@ -41,7 +41,7 @@ typedef struct {
 } f12r_coap_ctx_t;
 
 uint32_t execute_femtocontainer_vm(uint8_t *payload, size_t payload_len,
-                                   char *location)
+                                   char *location, int64_t *return_value)
 {
     LOG_DEBUG(
         "[BPF handler]: getting appropriate SUIT backend depending on the "
@@ -54,6 +54,7 @@ uint32_t execute_femtocontainer_vm(uint8_t *payload, size_t payload_len,
 
     LOG_DEBUG("[BPF handler]: setting suit storage active location: %s\n",
               location);
+
     suit_storage_set_active_location(storage, location);
     const uint8_t *mem_region;
     size_t length;
@@ -79,6 +80,7 @@ uint32_t execute_femtocontainer_vm(uint8_t *payload, size_t payload_len,
 
     f12r_mem_region_t mem_context;
 
+    LOG_DEBUG("[BPF handler]: initialising bpf context with payload.\n");
     context_t *bpf_ctx = malloc(sizeof(context_t));
     bpf_ctx->payload = payload;
     bpf_ctx->payload_length = payload_len;
@@ -101,6 +103,7 @@ uint32_t execute_femtocontainer_vm(uint8_t *payload, size_t payload_len,
     int res = f12r_execute_ctx(&_bpf, bpf_ctx, 64, &result);
     ztimer_now_t end = ztimer_now(ZTIMER_USEC);
     uint32_t execution_time = end - start;
+    *return_value = result;
 
     printf("[BPF handler]: Execution complete res=%i, result=%d \nExecution "
            "time: %i [us]\n",
@@ -163,8 +166,8 @@ void copy_packet(pkt_buf *ctx, uint8_t *mem)
     LOG_INFO("buf len: %d\n", (int)memory_region[2]);
 }
 
-
-uint32_t execute_femtocontainer_vm_coap_packet(pkt_buf *ctx, char *location)
+uint32_t execute_fc_vm_on_coap_pkt(pkt_buf *ctx, char *location,
+                                   uint64_t *return_value)
 {
 
     coap_pkt_t *pdu = ctx->pdu;
@@ -213,7 +216,7 @@ uint32_t execute_femtocontainer_vm_coap_packet(pkt_buf *ctx, char *location)
         .buf = buf,
         .buf_len = len,
     };
-    printf("[BPF]: executing gcoap handler\n");
+    LOG_DEBUG("[BPF]: executing gcoap handler\n");
 
     f12r_setup(&_bpf);
     f12r_add_region(&_bpf, &mem_pdu, pdu->hdr, 256,
@@ -229,8 +232,9 @@ uint32_t execute_femtocontainer_vm_coap_packet(pkt_buf *ctx, char *location)
     int res = f12r_execute_ctx(&_bpf, &bpf_ctx, 64, &result);
     ztimer_now_t end = ztimer_now(ZTIMER_USEC);
     uint32_t execution_time = end - start;
+    *return_value = result;
 
-    printf("[BPF handler]: Execution complete res=%i, result=%d \nExecution "
+    LOG_DEBUG("[BPF handler]: Execution complete res=%i, result=%d \nExecution "
            "time: %i [us]\n",
            res, (uint32_t)result, execution_time);
 
