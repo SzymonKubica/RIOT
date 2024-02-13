@@ -2,8 +2,8 @@ use riot_wrappers::mutex::Mutex;
 use riot_wrappers::shell::CommandList;
 
 use core::fmt::Write;
-use embedded_hal::digital::v2::OutputPin;
 use embedded_hal::digital::v2::InputPin;
+use embedded_hal::digital::v2::OutputPin;
 use embedded_hal::digital::v2::ToggleableOutputPin;
 use riot_wrappers::gpio;
 use riot_wrappers::{cstr::cstr, stdio::println};
@@ -37,7 +37,7 @@ pub fn shell_main(countdown: &Mutex<u32>) -> Result<(), ()> {
                         gpio::GPIO::from_c(unsafe { riot_sys::macro_GPIO_PIN(port, pin_num) })
                             .unwrap();
 
-                    match (&args[1]) {
+                    match &args[1] {
                         "read" => {
                             let result = pin.configure_as_input(gpio::InputMode::In);
                             if let Ok(mut in_pin) = result {
@@ -61,7 +61,7 @@ pub fn shell_main(countdown: &Mutex<u32>) -> Result<(), ()> {
                             let result = pin.configure_as_output(gpio::OutputMode::Out);
                             if let Ok(mut out_pin) = result {
                                 writeln!(stdio, "Writing to GPIO port: {} pin: {} ", port, pin_num);
-                                let res = match (args[4].parse::<u32>()) {
+                                let res = match args[4].parse::<u32>() {
                                     Ok(0) => out_pin.set_low(),
                                     Ok(_) => out_pin.set_high(),
                                     _ => Ok(()),

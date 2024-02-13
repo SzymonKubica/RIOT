@@ -9,6 +9,7 @@
 
 use core::ffi::CStr;
 
+use riot_wrappers::gpio;
 use riot_wrappers::stdio::println;
 
 /// Indices of the helper functions are defined to be exactly the same as in the
@@ -49,6 +50,9 @@ pub const BPF_NOW_MS_IDX: u32 = 0x20;
 /* ZTIMER */
 pub const BPF_ZTIMER_NOW_IDX: u32 = 0x60;
 pub const BPF_ZTIMER_PERIODIC_WAKEUP_IDX: u32 = 0x61;
+
+pub const BPF_GPIO_READ: u32 = 0x70;
+pub const BPF_GPIO_WRITE: u32 = 0x71;
 
 /* Print/debug helper functions - implementation */
 /// The goal is to allow for printing arbitrary text, it isn't possible at the moment.
@@ -306,9 +310,31 @@ pub fn bpf_fmt_u32_dec(out_p: u64, val: u64, unused3: u64, unused4: u64, unused5
     }
 }
 
+/* GPIO functions - implementation */
+pub fn bpf_gpio_read(port: u64, pin_num: u64, unused3: u64, unused4: u64, unused5: u64) -> u64 {
+    let pin = gpio::GPIO::from_c(unsafe { riot_sys::macro_GPIO_PIN(port as u32, pin_num as u32) }).unwrap();
+    let result = pin.configure_as_input(gpio::InputMode::In);
+    if let Ok(mut in_pin) = result {
+        let pin_state = unsafe { riot_sys::gpio_read(in_pin.to_c()) };
+        return pin_state as u64;
+    }
+    return 0;
+}
+pub fn bpf_gpio_write(port: u64, pin_num: u64, val: u64, unused4: u64, unused5: u64) -> u64 {
+    let pin = gpio::GPIO::from_c(unsafe { riot_sys::macro_GPIO_PIN(port as u32, pin_num as u32) }).unwrap();
+    unsafe {
+        let result = pin.configure_as_output(gpio::OutputMode::Out);
+        if let Ok(mut out_pin) = result {
+            unsafe { riot_sys::gpio_write(out_pin.to_c(), val as i32) };
+            return 1;
+        }
+        return 0;
+    }
+}
+
 /// List of all helpers together with their corresponding numbers (used
 /// directly as function pointers in the compiled eBPF bytecode).
-pub const ALL_HELPERS: [(u32, fn(u64, u64, u64, u64, u64) -> u64); 16] = [
+pub const ALL_HELPERS: [(u32, fn(u64, u64, u64, u64, u64) -> u64); 18] = [
     // Print/debug helper functions
     (BPF_DEBUG_PRINT_IDX, bpf_print_debug),
     (BPF_PRINTF_IDX, bpf_printf),
@@ -328,6 +354,8 @@ pub const ALL_HELPERS: [(u32, fn(u64, u64, u64, u64, u64) -> u64); 16] = [
     (BPF_COAP_GET_PDU_IDX, bpf_gcoap_resp_init),
     (BPF_FMT_S16_DFP_IDX, bpf_fmt_s16_dfp),
     (BPF_FMT_U32_DEC_IDX, bpf_fmt_u32_dec),
+    (BPF_GPIO_READ, bpf_gpio_read),
+    (BPF_GPIO_WRITE, bpf_gpio_write),
 ];
 
 /// Registers all helpers provided by Femto-Container VM.
