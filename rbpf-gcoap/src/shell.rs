@@ -3,6 +3,7 @@ use riot_wrappers::shell::CommandList;
 
 use core::fmt::Write;
 use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::digital::v2::InputPin;
 use embedded_hal::digital::v2::ToggleableOutputPin;
 use riot_wrappers::gpio;
 use riot_wrappers::{cstr::cstr, stdio::println};
@@ -19,7 +20,7 @@ pub fn shell_main(countdown: &Mutex<u32>) -> Result<(), ()> {
             let mut usage = || {
                 writeln!(
                     stdio,
-                    "usage: {} [read|write|toggle] <port> <pin> (value)",
+                    "usage: {} [read|write|toggle] <port> <pin> (<value-to-write>)",
                     &args[0]
                 )
                 .unwrap();
@@ -38,10 +39,25 @@ pub fn shell_main(countdown: &Mutex<u32>) -> Result<(), ()> {
 
                     match (&args[1]) {
                         "read" => {
-                            let pin_state = unsafe { riot_sys::gpio_read(pin.to_c()) };
-                            writeln!(stdio, "Pin state: {}", pin_state);
+                            let result = pin.configure_as_input(gpio::InputMode::In);
+                            if let Ok(mut in_pin) = result {
+                                writeln!(
+                                    stdio,
+                                    "Reading from GPIO port: {} pin: {}",
+                                    port, pin_num
+                                );
+                                let pin_state = unsafe { riot_sys::gpio_read(in_pin.to_c()) };
+                                writeln!(stdio, "Raw Pin state: {}", pin_state);
+                                let is_high_res = in_pin.is_high();
+                                if let Ok(is_high) = is_high_res {
+                                    writeln!(stdio, "Pin state: {}", is_high);
+                                }
+                            }
                         }
                         "write" => {
+                            if args.len() < 5 {
+                                return usage();
+                            }
                             let result = pin.configure_as_output(gpio::OutputMode::Out);
                             if let Ok(mut out_pin) = result {
                                 writeln!(stdio, "Writing to GPIO port: {} pin: {} ", port, pin_num);
