@@ -20,7 +20,7 @@ pub fn shell_main(countdown: &Mutex<u32>) -> Result<(), ()> {
             let mut usage = || {
                 writeln!(
                     stdio,
-                    "usage: {} [read|write|toggle] <port> <pin> (<value-to-write>)",
+                    "usage: {} [read-input|read-raw|write|toggle] <port> <pin> (<value-to-write>)",
                     &args[0]
                 )
                 .unwrap();
@@ -38,7 +38,7 @@ pub fn shell_main(countdown: &Mutex<u32>) -> Result<(), ()> {
                             .unwrap();
 
                     match &args[1] {
-                        "read" => {
+                        "read-input" => {
                             let result = pin.configure_as_input(gpio::InputMode::In);
                             if let Ok(mut in_pin) = result {
                                 writeln!(
@@ -53,6 +53,16 @@ pub fn shell_main(countdown: &Mutex<u32>) -> Result<(), ()> {
                                     writeln!(stdio, "Pin state: {}", is_high);
                                 }
                             }
+                        }
+                        // Reads raw state of the pin, can be used to inspect
+                        // outputs to see their state without changing it to 0
+                        // which happens when we try to initialise them as inputs.
+                        "read-raw" => {
+                            writeln!(stdio, "Reading from GPIO port: {} pin: {}", port, pin_num);
+                            let pin_state = unsafe {
+                                riot_sys::gpio_read(riot_sys::macro_GPIO_PIN(port, pin_num))
+                            };
+                            writeln!(stdio, "Pin state: {}", pin_state);
                         }
                         "write" => {
                             if args.len() < 5 {
