@@ -52,16 +52,16 @@ impl riot_wrappers::gcoap::Handler for VMExecutionOnCoapPktHandler {
 impl VMExecutionOnCoapPktHandler {
     fn handle_request(&mut self, request: &mut PacketBuffer) -> u8 {
         let preprocessing_result = preprocess_request(request);
-        let Ok(request_data) = preprocessing_result else {
-            let Err(code) = preprocessing_result;
-            return code;
+        let request_data = match preprocessing_result {
+            Ok(request_data) => request_data,
+            Err(code) => return code,
         };
 
         // The SUIT ram storage for the program is 2048 bytes large so we won't
         // be able to load larger images. Hence 2048 byte buffer is sufficient
         let mut program_buffer: [u8; 2048] = [0; 2048];
         let location = format!(".ram.{0}\0", request_data.suit_location);
-        let program = Self::read_program_from_suit_storage(&mut program_buffer, &location);
+        let program = read_program_from_suit_storage(&mut program_buffer, &location);
 
         println!(
             "Loaded program bytecode from SUIT storage location {}, program length: {}",
@@ -100,28 +100,21 @@ struct VMExecutionNoDataHandler {
     result: i64,
 }
 
-impl riot_wrappers::gcoap::Handler for VMExecutionNoDataHandler {
-    fn handle(&mut self, pkt: &mut PacketBuffer) -> isize {
-        let request_data = self.handle_request(pkt);
-        let mut lengthwrapped = ResponseMessage::new(pkt);
-        self.build_response(&mut lengthwrapped, request_data);
-        lengthwrapped.finish()
-    }
-}
+impl coap_handler::Handler for VMExecutionNoDataHandler {
+    type RequestData = u8;
 
-impl VMExecutionNoDataHandler {
-    fn handle_request(&mut self, request: &mut PacketBuffer) -> u8 {
+    fn extract_request_data(&mut self, request: &impl ReadableMessage) -> Self::RequestData {
         let preprocessing_result = preprocess_request(request);
-        let Ok(request_data) = preprocessing_result else {
-            let Err(code) = preprocessing_result;
-            return code;
+        let request_data = match preprocessing_result {
+            Ok(request_data) => request_data,
+            Err(code) => return code,
         };
 
         // The SUIT ram storage for the program is 2048 bytes large so we won't
         // be able to load larger images. Hence 2048 byte buffer is sufficient
         let mut program_buffer: [u8; 2048] = [0; 2048];
         let location = format!(".ram.{0}\0", request_data.suit_location);
-        let program = Self::read_program_from_suit_storage(&mut program_buffer, &location);
+        let program = read_program_from_suit_storage(&mut program_buffer, &location);
 
         println!(
             "Loaded program bytecode from SUIT storage location {}, program length: {}",
@@ -141,12 +134,16 @@ impl VMExecutionNoDataHandler {
         coap_numbers::code::CHANGED
     }
 
+    fn estimate_length(&mut self, _request: &Self::RequestData) -> usize {
+        1
+    }
+
     fn build_response(&mut self, response: &mut impl MutableWritableMessage, request: u8) {
         format_execution_response(self.execution_time, self.result, response, request);
     }
 }
 
-pub fn execute_vm_no_data() -> impl riot_wrappers::gcoap::Handler {
+pub fn execute_vm_no_data() -> impl coap_handler::Handler {
     VMExecutionNoDataHandler {
         execution_time: 0,
         result: 0,
@@ -186,8 +183,8 @@ fn format_execution_response(
     response.set_payload(resp.as_bytes());
 }
 
-fn preprocess_request(request: &mut PacketBuffer) -> Result<RequestData, u8> {
-    if request.code() as u8 != coap_numbers::code::POST {
+fn preprocess_request(request: &impl ReadableMessage) -> Result<RequestData, u8> {
+    if request.code().into() != coap_numbers::code::POST {
         return Err(coap_numbers::code::METHOD_NOT_ALLOWED);
     }
 

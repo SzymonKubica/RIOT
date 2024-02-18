@@ -3,13 +3,13 @@ use coap_message::{MessageOption, MutableWritableMessage, ReadableMessage};
 use core::convert::TryInto;
 use riot_wrappers::cstr::cstr;
 use riot_wrappers::{
-    coap_handler::GcoapHandler, gcoap, gcoap::SingleHandlerListener, gnrc, mutex::Mutex, riot_sys,
-    stdio::println, thread, ztimer, gpio,
+    coap_handler::GcoapHandler, gcoap, gcoap::SingleHandlerListener, gnrc, gpio, mutex::Mutex,
+    riot_sys, stdio::println, thread, ztimer,
 };
 
 use crate::handlers::{
-    execute_fc_on_coap_pkt, execute_vm_on_coap_pkt, handle_benchmark, handle_bytecode_load,
-    handle_console_write_request, handle_riot_board_query, handle_suit_pull_request,
+    execute_fc_on_coap_pkt, execute_vm_on_coap_pkt, handle_benchmark, handle_console_write_request,
+    handle_riot_board_query, handle_suit_pull_request,
 };
 
 pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
@@ -25,9 +25,7 @@ pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
     let mut benchmark_handler = GcoapHandler(handle_benchmark());
     let mut suit_pull_handler = GcoapHandler(handle_suit_pull_request());
 
-    // Custom handlers operating on the packet bytes directly. Used for executing
-    // rBPf and FemtoContainer VMs with access to the packet data.
-    let mut rbpf_handler = execute_vm_on_coap_pkt();
+    let mut coap_pkt_execution_handler = execute_vm_on_coap_pkt();
 
     let mut console_write_listener = SingleHandlerListener::new(
         cstr!("/console/write"),
@@ -41,8 +39,11 @@ pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
         &mut riot_board_handler,
     );
 
-    let mut coap_pkt_vm_listener =
-        SingleHandlerListener::new(cstr!("/vm/exec/coap-pkt"), riot_sys::COAP_POST, &mut rbpf_handler);
+    let mut coap_pkt_vm_listener = SingleHandlerListener::new(
+        cstr!("/vm/exec/coap-pkt"),
+        riot_sys::COAP_POST,
+        &mut coap_pkt_execution_handler,
+    );
 
     let mut benchmark_listener = SingleHandlerListener::new(
         cstr!("/benchmark"),
