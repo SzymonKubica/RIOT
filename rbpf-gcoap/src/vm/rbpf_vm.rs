@@ -1,9 +1,9 @@
 use crate::middleware;
 use crate::vm::VirtualMachine;
-use riot_sys;
 use core::ops::DerefMut;
-use rbpf::{without_std::Error, helpers};
-use riot_wrappers::{cstr::cstr, stdio::println, ztimer::Clock, gcoap::PacketBuffer};
+use rbpf::{helpers, without_std::Error};
+use riot_sys;
+use riot_wrappers::{cstr::cstr, gcoap::PacketBuffer, stdio::println, ztimer::Clock};
 pub struct RbpfVm {}
 
 extern "C" {
@@ -80,7 +80,10 @@ impl VirtualMachine for RbpfVm {
         let mutex = riot_wrappers::mutex::Mutex::new(mem);
 
         println!("Starting rBPf VM execution.");
-        let (_, execution_time) = self.timed_execution(|| vm.execute_program(mutex.lock().deref_mut()));
+        let (_, execution_time) =
+            // Here we need to do some hacking with locks as closures don't like
+            // capturing &mut references from environment. It does make sense.
+            self.timed_execution(|| vm.execute_program(mutex.lock().deref_mut()));
         execution_time
     }
 }

@@ -12,6 +12,17 @@ use core::ffi::CStr;
 use riot_wrappers::gpio;
 use riot_wrappers::stdio::println;
 
+pub struct HelperFunction {
+    pub index: u32,
+    pub function: fn(u64, u64, u64, u64, u64) -> u64,
+}
+
+impl HelperFunction {
+    pub fn new(index: u32, function: fn(u64, u64, u64, u64, u64) -> u64) -> Self {
+        HelperFunction { index, function }
+    }
+}
+
 /// Indices of the helper functions are defined to be exactly the same as in the
 /// case of Femto-Container eBPF VM to achieve compatibility.
 
@@ -312,8 +323,15 @@ pub fn bpf_fmt_u32_dec(out_p: u64, val: u64, unused3: u64, unused4: u64, unused5
 }
 
 /* GPIO functions - implementation */
-pub fn bpf_gpio_read_input(port: u64, pin_num: u64, unused3: u64, unused4: u64, unused5: u64) -> u64 {
-    let pin = gpio::GPIO::from_c(unsafe { riot_sys::macro_GPIO_PIN(port as u32, pin_num as u32) }).unwrap();
+pub fn bpf_gpio_read_input(
+    port: u64,
+    pin_num: u64,
+    unused3: u64,
+    unused4: u64,
+    unused5: u64,
+) -> u64 {
+    let pin = gpio::GPIO::from_c(unsafe { riot_sys::macro_GPIO_PIN(port as u32, pin_num as u32) })
+        .unwrap();
     let result = pin.configure_as_input(gpio::InputMode::In);
     if let Ok(mut in_pin) = result {
         let pin_state = unsafe { riot_sys::gpio_read(in_pin.to_c()) };
@@ -331,7 +349,8 @@ pub fn bpf_gpio_read_raw(port: u64, pin_num: u64, unused3: u64, unused4: u64, un
     return pin_state as u64;
 }
 pub fn bpf_gpio_write(port: u64, pin_num: u64, val: u64, unused4: u64, unused5: u64) -> u64 {
-    let pin = gpio::GPIO::from_c(unsafe { riot_sys::macro_GPIO_PIN(port as u32, pin_num as u32) }).unwrap();
+    let pin = gpio::GPIO::from_c(unsafe { riot_sys::macro_GPIO_PIN(port as u32, pin_num as u32) })
+        .unwrap();
     unsafe {
         let result = pin.configure_as_output(gpio::OutputMode::Out);
         if let Ok(mut out_pin) = result {
@@ -344,54 +363,68 @@ pub fn bpf_gpio_write(port: u64, pin_num: u64, val: u64, unused4: u64, unused5: 
 
 /// List of all helpers together with their corresponding numbers (used
 /// directly as function pointers in the compiled eBPF bytecode).
-pub const ALL_HELPERS: [(u32, fn(u64, u64, u64, u64, u64) -> u64); 19] = [
+pub const ALL_HELPERS: [HelperFunction; 19] = [
     // Print/debug helper functions
-    (BPF_DEBUG_PRINT_IDX, bpf_print_debug),
-    (BPF_PRINTF_IDX, bpf_printf),
-    (BPF_MEMCPY_IDX, bpf_memcpy),
+    HelperFunction::new(BPF_DEBUG_PRINT_IDX, bpf_print_debug),
+    HelperFunction::new(BPF_PRINTF_IDX, bpf_printf),
+    HelperFunction::new(BPF_MEMCPY_IDX, bpf_memcpy),
     // Time(r) functions
-    (BPF_NOW_MS_IDX, bpf_now_ms),
-    (BPF_ZTIMER_NOW_IDX, bpf_ztimer_now),
-    (BPF_ZTIMER_PERIODIC_WAKEUP_IDX, bpf_ztimer_periodic_wakeup),
+    HelperFunction::new(BPF_NOW_MS_IDX, bpf_now_ms),
+    HelperFunction::new(BPF_ZTIMER_NOW_IDX, bpf_ztimer_now),
+    HelperFunction::new(BPF_ZTIMER_PERIODIC_WAKEUP_IDX, bpf_ztimer_periodic_wakeup),
     // Saul functions
-    (BPF_SAUL_REG_FIND_NTH_IDX, bpf_saul_reg_find_nth),
-    (BPF_SAUL_REG_FIND_TYPE_IDX, bpf_saul_reg_find_type),
-    (BPF_SAUL_REG_WRITE_IDX, bpf_saul_reg_write),
-    (BPF_SAUL_REG_READ_IDX, bpf_saul_reg_read),
-    (BPF_GCOAP_RESP_INIT_IDX, bpf_gcoap_resp_init),
-    (BPF_COAP_OPT_FINISH_IDX, bpf_coap_opt_finish),
-    (BPF_COAP_ADD_FORMAT_IDX, bpf_coap_add_format),
-    (BPF_COAP_GET_PDU_IDX, bpf_gcoap_resp_init),
-    (BPF_FMT_S16_DFP_IDX, bpf_fmt_s16_dfp),
-    (BPF_FMT_U32_DEC_IDX, bpf_fmt_u32_dec),
-    (BPF_GPIO_READ_INPUT, bpf_gpio_read_input),
-    (BPF_GPIO_READ_RAW, bpf_gpio_read_raw),
-    (BPF_GPIO_WRITE, bpf_gpio_write),
+    HelperFunction::new(BPF_SAUL_REG_FIND_NTH_IDX, bpf_saul_reg_find_nth),
+    HelperFunction::new(BPF_SAUL_REG_FIND_TYPE_IDX, bpf_saul_reg_find_type),
+    HelperFunction::new(BPF_SAUL_REG_WRITE_IDX, bpf_saul_reg_write),
+    HelperFunction::new(BPF_SAUL_REG_READ_IDX, bpf_saul_reg_read),
+    HelperFunction::new(BPF_GCOAP_RESP_INIT_IDX, bpf_gcoap_resp_init),
+    HelperFunction::new(BPF_COAP_OPT_FINISH_IDX, bpf_coap_opt_finish),
+    HelperFunction::new(BPF_COAP_ADD_FORMAT_IDX, bpf_coap_add_format),
+    HelperFunction::new(BPF_COAP_GET_PDU_IDX, bpf_gcoap_resp_init),
+    HelperFunction::new(BPF_FMT_S16_DFP_IDX, bpf_fmt_s16_dfp),
+    HelperFunction::new(BPF_FMT_U32_DEC_IDX, bpf_fmt_u32_dec),
+    HelperFunction::new(BPF_GPIO_READ_INPUT, bpf_gpio_read_input),
+    HelperFunction::new(BPF_GPIO_READ_RAW, bpf_gpio_read_raw),
+    HelperFunction::new(BPF_GPIO_WRITE, bpf_gpio_write),
 ];
 
-/// Registers all helpers provided by Femto-Container VM.
-pub fn register_all(vm: &mut rbpf::EbpfVmFixedMbuff) {
-    for (id, helper) in ALL_HELPERS {
-        vm.register_helper(id, helper);
+/// Different versions of the rBPF VM have different implementations of the function
+/// for registering helpers, however there is no common trait which encapsulates
+/// that functionality. Because of this, when registering helpers for those VMs
+/// the register_helper function depends on the type of the VM that we have,
+/// this is unfortunate as it doesn't allow for easy swapping of the helpers.
+/// Because of this problem, the triait AcceptingHelpers was introduced.
+pub trait AcceptingHelpers {
+    fn register_helper(&mut self, index: u32, function: fn(u64, u64, u64, u64, u64) -> u64);
+}
+
+/* Implementations of the custom trait for all rBPF VMs */
+impl AcceptingHelpers for rbpf::EbpfVmFixedMbuff {
+    fn register_helper(&mut self, index: u32, function: fn(u64, u64, u64, u64, u64) -> u64) {
+        self.register_helper(index, function);
+    }
+}
+
+impl AcceptingHelpers for rbpf::EbpfVmRaw {
+    fn register_helper(&mut self, index: u32, function: fn(u64, u64, u64, u64, u64) -> u64) {
+        self.register_helper(index, function);
+    }
+}
+
+impl AcceptingHelpers for rbpf::EbpfVmNoData {
+    fn register_helper(&mut self, index: u32, function: fn(u64, u64, u64, u64, u64) -> u64) {
+        self.register_helper(index, function);
+    }
+}
+
+impl AcceptingHelpers for rbpf::EbpfVmMbuff {
+    fn register_helper(&mut self, index: u32, function: fn(u64, u64, u64, u64, u64) -> u64) {
+        self.register_helper(index, function);
     }
 }
 
 /// Registers all helpers provided by Femto-Container VM.
-pub fn register_all_raw_vm(vm: &mut rbpf::EbpfVmRaw) {
-    for (id, helper) in ALL_HELPERS {
-        vm.register_helper(id, helper);
-    }
-}
-
-/// Registers all helpers provided by Femto-Container VM.
-pub fn register_all_vm_no_data(vm: &mut rbpf::EbpfVmNoData) {
-    for (id, helper) in ALL_HELPERS {
-        vm.register_helper(id, helper);
-    }
-}
-
-
-pub fn register_all_vm_mem(vm: &mut rbpf::EbpfVmMbuff) {
+pub fn register_all(vm: &mut impl AcceptingHelpers) {
     for (id, helper) in ALL_HELPERS {
         vm.register_helper(id, helper);
     }
