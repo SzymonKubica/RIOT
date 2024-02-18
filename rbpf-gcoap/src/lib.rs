@@ -14,6 +14,7 @@ mod coap_server;
 mod handlers;
 mod middleware;
 mod shell;
+mod vm;
 
 // The second thread is running the CoAP network stack, therefore its
 // stack memory size needs to be appropriately larger.

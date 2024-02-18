@@ -383,6 +383,14 @@ pub fn register_all_raw_vm(vm: &mut rbpf::EbpfVmRaw) {
     }
 }
 
+/// Registers all helpers provided by Femto-Container VM.
+pub fn register_all_vm_no_data(vm: &mut rbpf::EbpfVmNoData) {
+    for (id, helper) in ALL_HELPERS {
+        vm.register_helper(id, helper);
+    }
+}
+
+
 pub fn register_all_vm_mem(vm: &mut rbpf::EbpfVmMbuff) {
     for (id, helper) in ALL_HELPERS {
         vm.register_helper(id, helper);
