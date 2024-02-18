@@ -8,8 +8,8 @@ use riot_wrappers::{
 };
 
 use crate::handlers::{
-    execute_fc_on_coap_pkt, execute_vm_on_coap_pkt, handle_benchmark, handle_console_write_request,
-    handle_riot_board_query, handle_suit_pull_request,
+    execute_fc_on_coap_pkt, execute_vm_no_data, execute_vm_on_coap_pkt, handle_benchmark,
+    handle_console_write_request, handle_riot_board_query, handle_suit_pull_request,
 };
 
 pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
@@ -26,6 +26,7 @@ pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
     let mut suit_pull_handler = GcoapHandler(handle_suit_pull_request());
 
     let mut coap_pkt_execution_handler = execute_vm_on_coap_pkt();
+    let mut no_data_execution_handler = GcoapHandler(execute_vm_no_data());
 
     let mut console_write_listener = SingleHandlerListener::new(
         cstr!("/console/write"),
@@ -41,6 +42,12 @@ pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
 
     let mut coap_pkt_vm_listener = SingleHandlerListener::new(
         cstr!("/vm/exec/coap-pkt"),
+        riot_sys::COAP_POST,
+        &mut coap_pkt_execution_handler,
+    );
+
+    let mut vm_listener = SingleHandlerListener::new(
+        cstr!("/vm/exec"),
         riot_sys::COAP_POST,
         &mut coap_pkt_execution_handler,
     );
@@ -62,6 +69,7 @@ pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
         greg.register(&mut console_write_listener);
         greg.register(&mut riot_board_listener);
         greg.register(&mut coap_pkt_vm_listener);
+        greg.register(&mut vm_listener);
         greg.register(&mut benchmark_listener);
         greg.register(&mut suit_pull_listener);
 
