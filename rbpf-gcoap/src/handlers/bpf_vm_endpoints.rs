@@ -1,3 +1,4 @@
+use alloc::boxed::Box;
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -31,24 +32,24 @@ extern "C" {
     fn copy_packet(buffer: *mut PacketBuffer, mem: *mut u8);
 }
 
-struct RbpfCoapExecutor {
+struct CoapPacketVMExecutor {
     execution_time: u32,
     result: i64,
 }
 
 #[derive(Deserialize)]
-enum VmType {
+enum VmTarget {
     Rbpf,
     FemtoContainer,
 }
 
 #[derive(Deserialize)]
 struct RequestData {
-    pub vm_type: VmType,
+    pub vm_target: VmTarget,
     pub suit_location: usize,
 }
 
-impl riot_wrappers::gcoap::Handler for RbpfCoapExecutor {
+impl riot_wrappers::gcoap::Handler for CoapPacketVMExecutor {
     fn handle(&mut self, pkt: &mut PacketBuffer) -> isize {
         let request_data = self.extract_request_data(pkt);
         let mut lengthwrapped = ResponseMessage::new(pkt);
@@ -57,7 +58,7 @@ impl riot_wrappers::gcoap::Handler for RbpfCoapExecutor {
     }
 }
 
-impl RbpfCoapExecutor {
+impl CoapPacketVMExecutor {
     fn extract_request_data(&mut self, request: &mut PacketBuffer) -> u8 {
         if request.code() as u8 != coap_numbers::code::POST {
             return coap_numbers::code::METHOD_NOT_ALLOWED;
@@ -84,18 +85,13 @@ impl RbpfCoapExecutor {
             program.len()
         );
 
-        match request_data.vm_type {
-            VmType::Rbpf => {
-                let vm = RbpfVm::new(Vec::from(middleware::ALL_HELPERS));
-                self.execution_time = vm.execute_on_coap_pkt(&program, request, &mut self.result);
-            }
-            VmType::FemtoContainer => {
-                let vm = FemtoContainerVm {};
-                self.execution_time = vm.execute_on_coap_pkt(&program, request, &mut self.result);
-            }
-        }
+        // Dynamically dispatch between the two different VM implementations
+        // depending on the request data.
+        let vm: Box<dyn VirtualMachine> = match request_data.vm_type {
+            VmTarget::Rbpf => Box::new(RbpfVm::new(Vec::from(middleware::ALL_HELPERS))),
+            VmTarget::FemtoContainer => Box::new(FemtoContainerVm {}),
+        };
 
-        let vm = RbpfVm::new(Vec::from(middleware::ALL_HELPERS));
         self.execution_time = vm.execute_on_coap_pkt(&program, request, &mut self.result);
 
         coap_numbers::code::CHANGED
@@ -128,8 +124,8 @@ impl RbpfCoapExecutor {
     }
 }
 
-pub fn execute_rbpf_on_coap_pkt() -> impl riot_wrappers::gcoap::Handler {
-    RbpfCoapExecutor {
+pub fn execute_vm_on_coap_pkt() -> impl riot_wrappers::gcoap::Handler {
+    CoapPacketVMExecutor {
         execution_time: 0,
         result: 0,
     }

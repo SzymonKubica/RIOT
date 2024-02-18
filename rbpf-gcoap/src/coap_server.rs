@@ -8,7 +8,7 @@ use riot_wrappers::{
 };
 
 use crate::handlers::{
-    execute_fc_on_coap_pkt, execute_rbpf_on_coap_pkt, handle_benchmark, handle_bytecode_load,
+    execute_fc_on_coap_pkt, execute_vm_on_coap_pkt, handle_benchmark, handle_bytecode_load,
     handle_console_write_request, handle_riot_board_query, handle_suit_pull_request,
 };
 
@@ -27,8 +27,7 @@ pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
 
     // Custom handlers operating on the packet bytes directly. Used for executing
     // rBPf and FemtoContainer VMs with access to the packet data.
-    let mut rbpf_handler = execute_rbpf_on_coap_pkt();
-    let mut femtocontainer_handler = execute_fc_on_coap_pkt();
+    let mut rbpf_handler = execute_vm_on_coap_pkt();
 
     let mut console_write_listener = SingleHandlerListener::new(
         cstr!("/console/write"),
@@ -42,14 +41,8 @@ pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
         &mut riot_board_handler,
     );
 
-    let mut rbpf_listener =
-        SingleHandlerListener::new(cstr!("/rbpf/exec"), riot_sys::COAP_POST, &mut rbpf_handler);
-
-    let mut femtocontainer_listener = SingleHandlerListener::new(
-        cstr!("/femto-container/exec"),
-        riot_sys::COAP_POST,
-        &mut femtocontainer_handler,
-    );
+    let mut coap_pkt_vm_listener =
+        SingleHandlerListener::new(cstr!("/vm/exec/coap-pkt"), riot_sys::COAP_POST, &mut rbpf_handler);
 
     let mut benchmark_listener = SingleHandlerListener::new(
         cstr!("/benchmark"),
@@ -67,8 +60,7 @@ pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
         // Endpoint handlers are registered here.
         greg.register(&mut console_write_listener);
         greg.register(&mut riot_board_listener);
-        greg.register(&mut rbpf_listener);
-        greg.register(&mut femtocontainer_listener);
+        greg.register(&mut coap_pkt_vm_listener);
         greg.register(&mut benchmark_listener);
         greg.register(&mut suit_pull_listener);
 
