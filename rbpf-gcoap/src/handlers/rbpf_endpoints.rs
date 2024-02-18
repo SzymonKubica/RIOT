@@ -8,12 +8,15 @@ use core::fmt;
 use riot_wrappers::coap_message::ResponseMessage;
 use riot_wrappers::gcoap::PacketBuffer;
 use riot_wrappers::{cstr::cstr, stdio::println, ztimer::Clock};
+use riot_wrappers::{mutex::Mutex, thread, ztimer};
 
 use crate::middleware;
 use crate::rbpf;
 use crate::rbpf::helpers;
 // The riot_sys reimported through the wrappers doesn't seem to work.
 use riot_sys;
+
+static VM_THREAD_STACK: Mutex<[u8; 5120]> = Mutex::new([0; 5120]);
 
 extern "C" {
     /// Responsible for loading the bytecode from the SUIT ram storage.
@@ -95,25 +98,48 @@ impl RbpfCoapExecutor {
 
         middleware::register_all_raw_vm(&mut vm);
 
-        // This unsafe hacking is needed as the ztimer_now call expects to get an
-        // argument of type riot_sys::inline::ztimer_clock_t but the ztimer_clock_t
-        // ZTIMER_USEC that we get from riot_sys has type riot_sys::ztimer_clock_t.
-        println!("Starting rBPf VM execution.");
-        let clock = unsafe { riot_sys::ZTIMER_USEC as *mut riot_sys::inline::ztimer_clock_t };
-        let start: u32 = unsafe { riot_sys::inline::ztimer_now(clock) };
-        let result = vm.execute_program(&mut mem);
-        let end: u32 = unsafe { riot_sys::inline::ztimer_now(clock) };
-        if let Ok(res) = result {
-            println!("Program returned: {:?} ({:#x})", res, res);
-            self.result = res as i64;
-        } else {
-            println!("Program returned: {:?}", result);
-            self.result = -1;
-        }
+        let mut vm_closure = || {
+            println!("Starting rBPf VM execution.");
+            // This unsafe hacking is needed as the ztimer_now call expects to get an
+            // argument of type riot_sys::inline::ztimer_clock_t but the ztimer_clock_t
+            // ZTIMER_USEC that we get from riot_sys has type riot_sys::ztimer_clock_t.
+            let clock = unsafe { riot_sys::ZTIMER_USEC as *mut riot_sys::inline::ztimer_clock_t };
+            let start: u32 = unsafe { riot_sys::inline::ztimer_now(clock) };
+            let result = vm.execute_program(&mut mem);
+            let end: u32 = unsafe { riot_sys::inline::ztimer_now(clock) };
+            if let Ok(res) = result {
+                println!("Program returned: {:?} ({:#x})", res, res);
+                self.result = res as i64;
+            } else {
+                println!("Program returned: {:?}", result);
+                self.result = -1;
+            }
 
-        println!("Execution time: {} [us]", end - start);
+            println!("Execution time: {} [us]", end - start);
 
-        self.execution_time = end - start;
+            self.execution_time = end - start;
+        };
+
+        let mut vmthread_stacklock = VM_THREAD_STACK.lock();
+
+        thread::scope(|threadscope| {
+            let vmthread = threadscope
+                .spawn(
+                    vmthread_stacklock.as_mut(),
+                    &mut vm_closure,
+                    cstr!("rbpf vm"),
+                    (riot_sys::THREAD_PRIORITY_MAIN - 2) as _,
+                    (riot_sys::THREAD_CREATE_STACKTEST) as _,
+                )
+                .expect("Failed to spawn second thread");
+
+            println!(
+                "rBPF VM thread spawned as {:?} ({:?}), status {:?}",
+                vmthread.pid(),
+                vmthread.pid().get_name(),
+                vmthread.status()
+            );
+        });
 
         coap_numbers::code::CHANGED
     }

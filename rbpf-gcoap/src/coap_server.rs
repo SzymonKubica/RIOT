@@ -13,11 +13,6 @@ use crate::handlers::{
 };
 
 pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
-
-
-
-
-
     // Each endpoint needs a request handler defined as its own struct implemneting
     // the Handler trait. Then we need to initialise a listener for that endpoint
     // and add it as a resource in the gcoap scope.
