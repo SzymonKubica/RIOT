@@ -9,16 +9,19 @@
 
 use core::ffi::CStr;
 
+use alloc::vec::Vec;
 use riot_wrappers::gpio;
 use riot_wrappers::stdio::println;
+use rbpf::helpers;
 
+#[derive(Copy, Clone)]
 pub struct HelperFunction {
     pub index: u32,
     pub function: fn(u64, u64, u64, u64, u64) -> u64,
 }
 
 impl HelperFunction {
-    pub fn new(index: u32, function: fn(u64, u64, u64, u64, u64) -> u64) -> Self {
+    pub const fn new(index: u32, function: fn(u64, u64, u64, u64, u64) -> u64) -> Self {
         HelperFunction { index, function }
     }
 }
@@ -363,8 +366,9 @@ pub fn bpf_gpio_write(port: u64, pin_num: u64, val: u64, unused4: u64, unused5: 
 
 /// List of all helpers together with their corresponding numbers (used
 /// directly as function pointers in the compiled eBPF bytecode).
-pub const ALL_HELPERS: [HelperFunction; 19] = [
+pub const ALL_HELPERS: [HelperFunction; 20] = [
     // Print/debug helper functions
+    HelperFunction::new(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf),
     HelperFunction::new(BPF_DEBUG_PRINT_IDX, bpf_print_debug),
     HelperFunction::new(BPF_PRINTF_IDX, bpf_printf),
     HelperFunction::new(BPF_MEMCPY_IDX, bpf_memcpy),
@@ -395,37 +399,43 @@ pub const ALL_HELPERS: [HelperFunction; 19] = [
 /// this is unfortunate as it doesn't allow for easy swapping of the helpers.
 /// Because of this problem, the triait AcceptingHelpers was introduced.
 pub trait AcceptingHelpers {
-    fn register_helper(&mut self, index: u32, function: fn(u64, u64, u64, u64, u64) -> u64);
+    fn register_helper(&mut self, helper: HelperFunction);
 }
 
 /* Implementations of the custom trait for all rBPF VMs */
-impl AcceptingHelpers for rbpf::EbpfVmFixedMbuff {
-    fn register_helper(&mut self, index: u32, function: fn(u64, u64, u64, u64, u64) -> u64) {
-        self.register_helper(index, function);
+impl AcceptingHelpers for rbpf::EbpfVmFixedMbuff<'_> {
+    fn register_helper(&mut self, helper: HelperFunction) {
+        self.register_helper(helper.index, helper.function);
     }
 }
 
-impl AcceptingHelpers for rbpf::EbpfVmRaw {
-    fn register_helper(&mut self, index: u32, function: fn(u64, u64, u64, u64, u64) -> u64) {
-        self.register_helper(index, function);
+impl AcceptingHelpers for rbpf::EbpfVmRaw<'_> {
+    fn register_helper(&mut self, helper: HelperFunction) {
+        self.register_helper(helper.index, helper.function);
     }
 }
 
-impl AcceptingHelpers for rbpf::EbpfVmNoData {
-    fn register_helper(&mut self, index: u32, function: fn(u64, u64, u64, u64, u64) -> u64) {
-        self.register_helper(index, function);
+impl AcceptingHelpers for rbpf::EbpfVmNoData<'_> {
+    fn register_helper(&mut self, helper: HelperFunction) {
+        self.register_helper(helper.index, helper.function);
     }
 }
 
-impl AcceptingHelpers for rbpf::EbpfVmMbuff {
-    fn register_helper(&mut self, index: u32, function: fn(u64, u64, u64, u64, u64) -> u64) {
-        self.register_helper(index, function);
+impl AcceptingHelpers for rbpf::EbpfVmMbuff<'_> {
+    fn register_helper(&mut self, helper: HelperFunction) {
+        self.register_helper(helper.index, helper.function);
     }
 }
 
 /// Registers all helpers provided by Femto-Container VM.
 pub fn register_all(vm: &mut impl AcceptingHelpers) {
-    for (id, helper) in ALL_HELPERS {
-        vm.register_helper(id, helper);
+    for helper in ALL_HELPERS {
+        vm.register_helper(helper);
+    }
+}
+
+pub fn register_helpers(vm: &mut impl AcceptingHelpers, helpers: Vec<HelperFunction>) {
+    for helper in helpers {
+        vm.register_helper(helper);
     }
 }

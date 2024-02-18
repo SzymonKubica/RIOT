@@ -13,7 +13,8 @@ use riot_wrappers::{mutex::Mutex, thread, ztimer};
 use crate::middleware;
 use crate::rbpf;
 use crate::rbpf::helpers;
-use crate::vm::{RbpfVm, VirtualMachine};
+use crate::vm::{FemtoContainerVm, RbpfVm, VirtualMachine};
+use serde::{Deserialize, Serialize};
 // The riot_sys reimported through the wrappers doesn't seem to work.
 use riot_sys;
 
@@ -33,6 +34,18 @@ extern "C" {
 struct RbpfCoapExecutor {
     execution_time: u32,
     result: i64,
+}
+
+#[derive(Deserialize)]
+enum VmType {
+    Rbpf,
+    FemtoContainer,
+}
+
+#[derive(Deserialize)]
+struct RequestData {
+    pub vm_type: VmType,
+    pub suit_location: usize,
 }
 
 impl riot_wrappers::gcoap::Handler for RbpfCoapExecutor {
@@ -57,32 +70,48 @@ impl RbpfCoapExecutor {
         };
 
         println!("Request payload received: {}", s);
+        let (request_data, length): (RequestData, usize) = serde_json_core::from_str(s).unwrap();
 
         // The SUIT ram storage for the program is 2048 bytes large so we won't
         // be able to load larger images. Hence 2048 byte buffer is sufficient
-        let mut prog_buf: [u8; 2048] = [0; 2048];
-        let mut length = 0;
-
-        let mut location = format!(".ram.{s}\0");
-
-        unsafe {
-            let buffer_ptr = prog_buf.as_mut_ptr();
-            let location_ptr = location.as_ptr() as *const char;
-            length = load_bytes_from_suit_storage(buffer_ptr, location_ptr);
-        };
-
-        let program = &prog_buf[..(length as usize)];
+        let mut program_buffer: [u8; 2048] = [0; 2048];
+        let location = format!(".ram.{0}\0", request_data.suit_location);
+        let program = Self::read_program_from_suit_storage(&mut program_buffer, &location);
 
         println!(
             "Loaded program bytecode from SUIT storage location {}, program length: {}",
             location,
-            program.to_vec().len()
+            program.len()
         );
 
-        let vm = RbpfVm::new();
+        match request_data.vm_type {
+            VmType::Rbpf => {
+                let vm = RbpfVm::new(Vec::from(middleware::ALL_HELPERS));
+                self.execution_time = vm.execute_on_coap_pkt(&program, request, &mut self.result);
+            }
+            VmType::FemtoContainer => {
+                let vm = FemtoContainerVm {};
+                self.execution_time = vm.execute_on_coap_pkt(&program, request, &mut self.result);
+            }
+        }
+
+        let vm = RbpfVm::new(Vec::from(middleware::ALL_HELPERS));
         self.execution_time = vm.execute_on_coap_pkt(&program, request, &mut self.result);
 
         coap_numbers::code::CHANGED
+    }
+
+    fn read_program_from_suit_storage<'a>(
+        program_buffer: &'a mut [u8],
+        location: &str,
+    ) -> &'a [u8] {
+        let mut length = 0;
+        unsafe {
+            let buffer_ptr = program_buffer.as_mut_ptr();
+            let location_ptr = location.as_ptr() as *const char;
+            length = load_bytes_from_suit_storage(buffer_ptr, location_ptr);
+        };
+        &program_buffer[..(length as usize)]
     }
 
     fn estimate_length(&mut self, _request: &u8) -> usize {
