@@ -181,15 +181,19 @@ class RBF(object):
             return instructions.LDDWD_OPCODE
 
     @staticmethod
-    def _patch_text(text, elffile, relocation):
+    def _patch_text(text, elffile, relocation, str_section_offsets):
         entry = relocation.entry
         location = entry.r_offset
         symbols = elffile.get_section_by_name(SYMBOLS)
+        for s in symbols.iter_symbols():
+            print(s.name, s.entry.st_info.type)
         symbol = symbols.get_symbol(entry.r_info_sym)
         if symbol.entry.st_info.type == 'STT_SECTION':
             # refers to an offset in a section
             section_name = elffile.get_section(symbol.entry.st_shndx).name
-            offset = 0
+            # the rodata.str.1 section gets here
+            print(str_section_offsets)
+            offset = str_section_offsets[section_name]
             pass
         elif symbol.entry.st_info.type == 'STT_OBJECT':
             section_name = elffile.get_section(symbol.entry.st_shndx).name
@@ -199,6 +203,7 @@ class RBF(object):
             logging.error(f"No LDDW instruction at {hex(location)}")
         else:
             instruction = instructions.LDDW._make(instructions.LDDW_STRUCT.unpack_from(text, location))
+            print(f"Replacing {instruction} at {location} with {opcode} at {offset}")
             logging.info(f"Replacing {instruction} at {location} with {opcode} at {offset}")
             text[location:location+16] = instructions.LDDW_STRUCT.pack(
                 opcode,
@@ -232,6 +237,16 @@ class RBF(object):
             data = bytearray()
         else:
             data = bytearray(elf_data.data())
+
+        # Here we extract all string sections from the rodata.str and append them
+        # to the end of the rodata section
+        str_section_offsets = {}
+        for section in elffile.iter_sections():
+            if ".rodata.str" in section.name:
+              print("Read-only string found: ", section.name)
+              print(len(rodata))
+              str_section_offsets[section.name] = len(rodata)
+              rodata += bytearray(section.data())
 
         symbols = elffile.get_section_by_name(SYMBOLS)
 
@@ -268,6 +283,6 @@ class RBF(object):
                     section = elffile.get_section(symbol.entry.st_shndx)
                     logging.info(f"relocation at instruction {hex(entry['r_offset'])} for symbol {name} in {section.name} at {symbol.entry.st_value}")
 
-                RBF._patch_text(text, elffile, relocation)
+                RBF._patch_text(text, elffile, relocation, str_section_offsets)
 
         return RBF(data=data, rodata=rodata, text=text, symbols=symbol_structs)

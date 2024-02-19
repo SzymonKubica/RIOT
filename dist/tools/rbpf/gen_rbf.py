@@ -30,6 +30,8 @@ def generate(arguments):
         data = rbf_o.format_compressed()
     else:
         data = rbf_o.format()
+        # for debugging
+        #rbf_o.dump()
     arguments.output.write(data)
 
 
