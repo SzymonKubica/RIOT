@@ -1,4 +1,4 @@
-use riot_wrappers::gcoap::PacketBuffer;
+use riot_wrappers::{gcoap::PacketBuffer, println};
 
 use crate::vm::VirtualMachine;
 
@@ -11,21 +11,26 @@ extern "C" {
         pkt: *mut PacketBuffer,
         return_value: *mut i64,
     ) -> u32;
+
+    fn execute_fc_vm(program: *const u8, program_len: usize, return_value: *mut i64) -> u32;
 }
 
 pub struct FemtoContainerVm {}
 
 impl VirtualMachine for FemtoContainerVm {
     fn execute(&self, program: &[u8], result: &mut i64) -> u32 {
-        0
+        println!("Starting FemtoContainer VM execution.");
+        unsafe {
+            return execute_fc_vm(
+                program.as_ptr() as *const u8,
+                program.len(),
+                result as *mut i64,
+            );
+        }
     }
 
-    fn execute_on_coap_pkt(
-        &self,
-        program: &[u8],
-        pkt: &mut PacketBuffer,
-        result: &mut i64,
-    ) -> u32 {
+    fn execute_on_coap_pkt(&self, program: &[u8], pkt: &mut PacketBuffer, result: &mut i64) -> u32 {
+        println!("Starting FemtoContainer VM execution.");
         unsafe {
             return execute_fc_vm_on_coap_pkt(
                 program.as_ptr() as *const u8,

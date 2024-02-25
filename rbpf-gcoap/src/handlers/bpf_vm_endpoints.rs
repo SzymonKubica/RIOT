@@ -51,6 +51,9 @@ impl riot_wrappers::gcoap::Handler for VMExecutionOnCoapPktHandler {
 
 impl VMExecutionOnCoapPktHandler {
     fn handle_request(&mut self, request: &mut PacketBuffer) -> u8 {
+        // Measure the total request processing time.
+        let clock = unsafe { riot_sys::ZTIMER_USEC as *mut riot_sys::inline::ztimer_clock_t };
+        let start: u32 = unsafe { riot_sys::inline::ztimer_now(clock) };
         let preprocessing_result = preprocess_request(request);
         let request_data = match preprocessing_result {
             Ok(request_data) => request_data,
@@ -78,6 +81,8 @@ impl VMExecutionOnCoapPktHandler {
 
         self.execution_time = vm.execute_on_coap_pkt(&program, request, &mut self.result);
 
+        let end: u32 = unsafe { riot_sys::inline::ztimer_now(clock) };
+        println!("Total request processing time: {} [us]", end - start);
         coap_numbers::code::CHANGED
     }
 

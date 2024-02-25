@@ -88,8 +88,9 @@ impl VirtualMachine for RbpfVm {
 
         // Here we need to do some hacking with locks as closures don't like
         // capturing &mut references from environment. It does make sense.
-        let (_, execution_time) =
+        let (ret, execution_time) =
             self.timed_execution(|| vm.execute_program(mutex.lock().deref_mut()));
+        *result = ret;
         execution_time
     }
 }

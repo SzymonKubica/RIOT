@@ -77,6 +77,7 @@ pub fn bpf_printf(fmt: u64, a1: u64, a2: u64, a3: u64, a4: u64) -> u64 {
     extern "C" {
         fn printf(fmt: *const char, ...) -> i32;
     }
+    //println!("bpf_printf: {fmt}, {a1}, {a2}, {a3}, {a4}");
     unsafe {
         printf(
             CStr::from_ptr(fmt as *const i8).as_ptr() as *const char,

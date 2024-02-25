@@ -118,6 +118,34 @@ typedef struct {
     size_t len;
 } pkt_buf;
 
+uint32_t execute_fc_vm(uint8_t *program, uint32_t program_len, uint64_t *return_value)
+{
+
+    LOG_DEBUG("[BPF handler]: initialising the eBPF application struct\n");
+    _bpf.application = program;
+    _bpf.application_len = program_len;
+    LOG_DEBUG("Program address: %p\n", program);
+
+    LOG_DEBUG("[BPF]: executing gcoap handler\n");
+
+    f12r_setup(&_bpf);
+    int64_t result = -1;
+    LOG_INFO("[BPF handler]: executing VM\n");
+    ztimer_acquire(ZTIMER_USEC);
+    ztimer_now_t start = ztimer_now(ZTIMER_USEC);
+    // Figure out the size of the context
+    int res = f12r_execute(&_bpf, 0, 64, &result);
+    ztimer_now_t end = ztimer_now(ZTIMER_USEC);
+    uint32_t execution_time = end - start;
+    *return_value = result;
+
+    LOG_INFO("Program returned: %d (%x)\n", result, result);
+    LOG_INFO("Exit code: %d\n", res);
+    LOG_INFO("Execution time: %d [us]\n", execution_time);
+
+    return execution_time;
+}
+
 uint32_t execute_fc_vm_on_coap_pkt(uint8_t *program, uint32_t program_len, pkt_buf *ctx,
                                    uint64_t *return_value)
 {
@@ -129,6 +157,7 @@ uint32_t execute_fc_vm_on_coap_pkt(uint8_t *program, uint32_t program_len, pkt_b
     LOG_DEBUG("[BPF handler]: initialising the eBPF application struct\n");
     _bpf.application = program;
     _bpf.application_len = program_len;
+    LOG_DEBUG("Program address: %p\n", program);
 
     f12r_mem_region_t mem_pdu;
     f12r_mem_region_t mem_pkt;
@@ -147,7 +176,7 @@ uint32_t execute_fc_vm_on_coap_pkt(uint8_t *program, uint32_t program_len, pkt_b
                     FC_MEM_REGION_READ | FC_MEM_REGION_WRITE);
 
     int64_t result = -1;
-    printf("[BPF handler]: executing VM\n");
+    LOG_INFO("[BPF handler]: executing VM\n");
     ztimer_acquire(ZTIMER_USEC);
     ztimer_now_t start = ztimer_now(ZTIMER_USEC);
     // Figure out the size of the context

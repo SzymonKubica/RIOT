@@ -49,7 +49,7 @@ pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
     let mut vm_listener = SingleHandlerListener::new(
         cstr!("/vm/exec"),
         riot_sys::COAP_POST,
-        &mut coap_pkt_execution_handler,
+        &mut no_data_execution_handler,
     );
 
     let mut benchmark_listener = SingleHandlerListener::new(
