@@ -6,14 +6,14 @@ use riot_wrappers::{
     coap_handler::GcoapHandler, gcoap, gcoap::SingleHandlerListener, gnrc, gpio, mutex::Mutex,
     riot_sys, stdio::println, thread, ztimer,
 };
+use riot_wrappers::msg::v2 as msg;
 
 use crate::handlers::{
-    execute_fc_on_coap_pkt, execute_vm_no_data, execute_vm_on_coap_pkt, handle_benchmark,
-    handle_console_write_request, handle_riot_board_query, handle_suit_pull_request,
+    execute_fc_on_coap_pkt, execute_vm_no_data, execute_vm_on_coap_pkt, handle_benchmark, handle_console_write_request, handle_riot_board_query, handle_suit_pull_request, spawn_vm_execution
 };
 
-pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
-    // Each endpoint needs a request handler defined as its own struct implemneting
+pub fn gcoap_server_main(_countdown: &Mutex<u32>, execution_send: &msg::SendPort<crate::ExecutionRequest, 23>) -> Result<(), ()> {
+    // Each endpoint needs a request handler defined as its own struct implementing
     // the Handler trait. Then we need to initialise a listener for that endpoint
     // and add it as a resource in the gcoap scope.
 
@@ -27,6 +27,7 @@ pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
 
     let mut coap_pkt_execution_handler = execute_vm_on_coap_pkt();
     let mut no_data_execution_handler = GcoapHandler(execute_vm_no_data());
+    let mut long_execution_handler = GcoapHandler(spawn_vm_execution(execution_send));
 
     let mut console_write_listener = SingleHandlerListener::new(
         cstr!("/console/write"),
@@ -52,6 +53,13 @@ pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
         &mut no_data_execution_handler,
     );
 
+    let mut vm_spawn_listener = SingleHandlerListener::new(
+        cstr!("/vm/spawn"),
+        riot_sys::COAP_POST,
+        &mut long_execution_handler,
+    );
+
+
     let mut benchmark_listener = SingleHandlerListener::new(
         cstr!("/benchmark"),
         riot_sys::COAP_POST,
@@ -71,6 +79,7 @@ pub fn gcoap_server_main(_countdown: &Mutex<u32>) -> Result<(), ()> {
         greg.register(&mut coap_pkt_vm_listener);
         greg.register(&mut vm_listener);
         greg.register(&mut benchmark_listener);
+        greg.register(&mut vm_spawn_listener);
         greg.register(&mut suit_pull_listener);
 
         println!(

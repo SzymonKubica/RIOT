@@ -30,7 +30,6 @@ pub fn shell_main(countdown: &Mutex<u32>) -> Result<(), ()> {
                 return usage();
             }
 
-            // accessing A5
             match (args[2].parse::<u32>(), args[3].parse::<u32>()) {
                 (Ok(port), Ok(pin_num)) => {
                     let pin =

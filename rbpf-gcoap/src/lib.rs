@@ -6,8 +6,8 @@
 #![no_std]
 
 use riot_wrappers::cstr::cstr;
-use riot_wrappers::riot_main;
 use riot_wrappers::{mutex::Mutex, stdio::println, thread, ztimer};
+use riot_wrappers::{riot_main, riot_main_with_tokens};
 
 mod allocator;
 mod coap_server;
@@ -27,9 +27,28 @@ extern crate rbpf;
 extern crate riot_sys;
 extern crate rust_riotmodules;
 
-riot_main!(main);
+use riot_wrappers::msg::v2 as msg;
+use riot_wrappers::msg::v2::MessageSemantics;
 
-fn main() {
+use vm::VmTarget;
+
+riot_main_with_tokens!(main);
+
+#[derive(Debug)]
+pub struct ExecutionRequest {
+    suit_location: u8,
+    vm_target: u8,
+}
+
+impl Drop for ExecutionRequest {
+    fn drop(&mut self) {
+        println!("Dropping {:?} now.", self);
+    }
+}
+
+pub type ExecutionPort = msg::ReceivePort<ExecutionRequest, 23>;
+
+fn main(initial: thread::StartToken) -> ((), thread::TerminationToken) {
     extern "C" {
         fn do_gnrc_msg_queue_init();
     }
@@ -42,52 +61,69 @@ fn main() {
     // Allows for inter-thread synchronization, not used at the moment.
     let countdown = Mutex::new(3);
 
-    // Lock the stacks of the threads.
-    let mut gcoapthread_stacklock = COAP_THREAD_STACK.lock();
-    let mut shellthread_stacklock = SHELL_THREAD_STACK.lock();
+    initial.with_message_queue::<4, _>(|initial| {
+        // Lock the stacks of the threads.
+        let mut gcoapthread_stacklock = COAP_THREAD_STACK.lock();
+        let mut shellthread_stacklock = SHELL_THREAD_STACK.lock();
 
-    let mut gcoapthread_mainclosure = || coap_server::gcoap_server_main(&countdown).unwrap();
-    let mut shellthread_mainclosure = || shell::shell_main(&countdown).unwrap();
+        // We need message semantics for the vm thread
+        let (_, semantics) = initial.take_msg_semantics();
+        let (message_semantics, execution_port, execution_send): (_, ExecutionPort, _) =
+            semantics.split_off();
 
-    // Spawn the threads and then wait forever.
-    thread::scope(|threadscope| {
-        let secondthread = threadscope
-            .spawn(
-                gcoapthread_stacklock.as_mut(),
-                &mut gcoapthread_mainclosure,
-                cstr!("secondthread"),
-                (riot_sys::THREAD_PRIORITY_MAIN - 2) as _,
-                (riot_sys::THREAD_CREATE_STACKTEST) as _,
-            )
-            .expect("Failed to spawn second thread");
-
-        println!(
-            "COAP server thread spawned as {:?} ({:?}), status {:?}",
-            secondthread.pid(),
-            secondthread.pid().get_name(),
-            secondthread.status()
-        );
-
-        let shellthread = threadscope
-            .spawn(
-                shellthread_stacklock.as_mut(),
-                &mut shellthread_mainclosure,
-                cstr!("shellthread"),
-                (riot_sys::THREAD_PRIORITY_MAIN - 1) as _,
-                (riot_sys::THREAD_CREATE_STACKTEST) as _,
-            )
-            .expect("Failed to spawn shell thread");
-
-        println!(
-            "Shell thread spawned as {:?} ({:?}), status {:?}",
-            shellthread.pid(),
-            shellthread.pid().get_name(),
-            shellthread.status()
-        );
-
-        loop {
-            thread::sleep();
+        fn use_in_other_thread<T: 'static + Send + Sync>(t: T) -> T {
+            // Not relly doing anything, but if this builds we know we could really pass out tickets.
+            t
         }
+        let execution_send = use_in_other_thread(execution_send);
+
+        let mut gcoapthread_mainclosure = || coap_server::gcoap_server_main(&countdown, &execution_send).unwrap();
+        let mut shellthread_mainclosure = || shell::shell_main(&countdown).unwrap();
+
+        // Spawn the threads and then wait forever.
+        thread::scope(|threadscope| {
+            let gcoapthread = threadscope
+                .spawn(
+                    gcoapthread_stacklock.as_mut(),
+                    &mut gcoapthread_mainclosure,
+                    cstr!("secondthread"),
+                    (riot_sys::THREAD_PRIORITY_MAIN - 3) as _,
+                    (riot_sys::THREAD_CREATE_STACKTEST) as _,
+                )
+                .expect("Failed to spawn gcoap server thread");
+
+            println!(
+                "COAP server thread spawned as {:?} ({:?}), status {:?}",
+                gcoapthread.pid(),
+                gcoapthread.pid().get_name(),
+                gcoapthread.status()
+            );
+
+            let shellthread = threadscope
+                .spawn(
+                    shellthread_stacklock.as_mut(),
+                    &mut shellthread_mainclosure,
+                    cstr!("shellthread"),
+                    (riot_sys::THREAD_PRIORITY_MAIN - 2) as _,
+                    (riot_sys::THREAD_CREATE_STACKTEST) as _,
+                )
+                .expect("Failed to spawn shell thread");
+
+            println!(
+                "Shell thread spawned as {:?} ({:?}), status {:?}",
+                shellthread.pid(),
+                shellthread.pid().get_name(),
+                shellthread.status()
+            );
+
+
+            // We invoke the VM after everything else is running
+            vm::vm_thread_main(&countdown, message_semantics, execution_port);
+
+            loop {
+                thread::sleep();
+            }
+        });
+        unreachable!();
     });
-    unreachable!();
 }

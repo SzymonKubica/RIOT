@@ -11,7 +11,9 @@ use riot_wrappers::gcoap::PacketBuffer;
 use riot_wrappers::{cstr::cstr, stdio::println, ztimer::Clock};
 use riot_wrappers::{mutex::Mutex, thread, ztimer};
 
-use crate::middleware;
+
+use riot_wrappers::msg::v2 as msg;
+use crate::{middleware, ExecutionRequest};
 use crate::rbpf;
 use crate::rbpf::helpers;
 use crate::vm::{FemtoContainerVm, RbpfVm, VirtualMachine};
@@ -153,6 +155,48 @@ pub fn execute_vm_no_data() -> impl coap_handler::Handler {
         execution_time: 0,
         result: 0,
     }
+}
+
+struct VMLongExecutionHandler<'a> {
+    execution_send: &'a msg::SendPort<crate::ExecutionRequest, 23>,
+}
+
+impl<'a> coap_handler::Handler for VMLongExecutionHandler<'a> {
+    type RequestData = u8;
+
+    fn extract_request_data(&mut self, request: &impl ReadableMessage) -> Self::RequestData {
+        let preprocessing_result = preprocess_request(request);
+        let request_data = match preprocessing_result {
+            Ok(request_data) => request_data,
+            Err(code) => return code,
+        };
+
+        self.execution_send.try_send(ExecutionRequest {
+            suit_location: request_data.suit_location as u8,
+            vm_target: match request_data.vm_target {
+                VmTarget::Rbpf => 0,
+                VmTarget::FemtoContainer => 1,
+            },
+        });
+
+        coap_numbers::code::CHANGED
+    }
+
+    fn estimate_length(&mut self, _request: &Self::RequestData) -> usize {
+        1
+    }
+
+    fn build_response(&mut self, response: &mut impl MutableWritableMessage, request: u8) {
+        response.set_code(request.try_into().map_err(|_| ()).unwrap());
+        // TODO: add meaningful response
+        response.set_payload("VM spawned successfully".as_bytes());
+    }
+}
+
+pub fn spawn_vm_execution<'a>(
+    execution_send: &'a msg::SendPort<crate::ExecutionRequest, 23>,
+) -> impl coap_handler::Handler + 'a {
+    VMLongExecutionHandler { execution_send }
 }
 
 /* Common utility functions for the handlers */
