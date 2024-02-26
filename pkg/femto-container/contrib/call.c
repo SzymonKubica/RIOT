@@ -184,6 +184,9 @@ uint32_t f12r_vm_ztimer_periodic_wakeup(f12r_t *f12r, uint64_t *regs) {
 uint32_t f12r_vm_printf(f12r_t *f12r, uint64_t *regs) {
   (void)f12r;
 
+  LOG_DEBUG("f12r_vm_printf: %d, %d, %d, %d, %d \n", (intptr_t)regs[1],
+         (intptr_t)regs[2], (intptr_t)regs[3], (intptr_t)regs[4],
+         (intptr_t)regs[5]);
   return printf((const char *)(intptr_t)regs[1], (uint32_t *)(intptr_t)regs[2],
                 (uint32_t *)(intptr_t)regs[3], (uint32_t *)(intptr_t)regs[4],
                 (uint32_t *)(intptr_t)regs[5]);
