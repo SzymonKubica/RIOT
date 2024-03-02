@@ -37,7 +37,7 @@
 #include "time_units.h"
 #include "ztimer.h"
 
-#define ENABLE_DEBUG            0
+#define ENABLE_DEBUG            1
 #include "debug.h"
 
 /* Every pulse send by the DHT longer than 40µs is interpreted as 1 */
@@ -48,7 +48,7 @@
  * most 20 ms (AM2301 / DHT22 / DHT21). Then release the bus and the
  * sensor should respond by pulling data low for 80 µs, then release for
  * 80µs before start sending data. */
-#define START_LOW_TIME          (19U * US_PER_MS)
+#define START_LOW_TIME          (3U * US_PER_MS)
 #define START_THRESHOLD         (75U)
 /* DHTs have to wait for power 1 or 2 seconds depending on the model */
 #define POWER_WAIT_TIMEOUT      (2U * US_PER_SEC)
@@ -90,15 +90,22 @@ static int _send_start_signal(dht_t *dev)
     /* check device response (80 µs low then 80 µs high) */
     start = ztimer_now(ZTIMER_USEC);
     _wait_for_level(dev->params.pin, 0, start);
-    if (ztimer_now(ZTIMER_USEC) - start > START_THRESHOLD) {
+    uint32_t end = ztimer_now(ZTIMER_USEC);
+    printf("[dht] low pulse waiting time: %d\n", end - start);
+    if (end - start > START_THRESHOLD) {
         DEBUG_PUTS("[dht] error: response low pulse > START_THRESHOLD");
+        printf("[dht] error: response low pulse > START_THRESHOLD\n");
         return -ENODEV;
     }
     _wait_for_level(dev->params.pin, 1, start);
     start = ztimer_now(ZTIMER_USEC);
+    printf ("[dht] low pulse time: %d\n", start - end);
     _wait_for_level(dev->params.pin, 0, start);
-    if (ztimer_now(ZTIMER_USEC) - start < START_THRESHOLD) {
+    end = ztimer_now(ZTIMER_USEC);
+    printf ("[dht] high pulse time: %d\n", end - start);
+    if (end - start < START_THRESHOLD) {
         DEBUG_PUTS("[dht] error: response high pulse < START_THRESHOLD");
+        printf("[dht] error: response high pulse < START_THRESHOLD\n");
         return -ENODEV;
     }
     return 0;
