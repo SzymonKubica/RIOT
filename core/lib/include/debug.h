@@ -89,7 +89,7 @@ extern "C" {
  *          @ref DEBUG() will generate output only if ENABLE_DEBUG is non-zero.
  */
 #if !defined(ENABLE_DEBUG) || defined(DOXYGEN)
-#define ENABLE_DEBUG 1
+#define ENABLE_DEBUG 0
 #endif
 
 /**
