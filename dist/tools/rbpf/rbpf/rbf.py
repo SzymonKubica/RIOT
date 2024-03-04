@@ -130,6 +130,12 @@ class RBF(object):
         data += self.text
         for symbol in self.symbols:
             data += SYMBOL_STRUCT.pack(*symbol)
+
+        print("Data")
+        for i, b in enumerate(data):
+            print("{:02x}".format(b), end=" ")
+            if i % 8 == 7:
+                print()
         return data
 
     def format_compressed(self):
@@ -198,6 +204,9 @@ class RBF(object):
         elif symbol.entry.st_info.type == 'STT_OBJECT':
             section_name = elffile.get_section(symbol.entry.st_shndx).name
             offset = symbol.entry.st_value
+        else:
+            # in case of functions we don't patch anything
+            return
         opcode = RBF._get_section_lddw_opcode(section_name)
         if text[location] != instructions.LDDW_OPCODE:
             logging.error(f"No LDDW instruction at {hex(location)}")
@@ -285,4 +294,10 @@ class RBF(object):
 
                 RBF._patch_text(text, elffile, relocation, str_section_offsets)
 
+
+        print("Text section")
+        for i, b in enumerate(text):
+            print("{:02x}".format(b), end=" ")
+            if i % 8 == 7:
+                print()
         return RBF(data=data, rodata=rodata, text=text, symbols=symbol_structs)
