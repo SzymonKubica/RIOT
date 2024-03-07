@@ -204,7 +204,7 @@ include $(RIOTMAKE)/boards.inc.mk
 include $(RIOTMAKE)/dependencies_debug.inc.mk
 
 # Use TOOLCHAIN environment variable to select the toolchain to use.
-ifeq ($(BOARD),native)
+ifneq (,$(filter native native64,$(BOARD)))
   ifeq ($(OS),Darwin)
     $(shell $(COLOR_ECHO) "$(COLOR_RED)"Buildin on macOS is not supported."\
                           "We recommend vagrant for building:$(COLOR_RESET)"\
@@ -493,7 +493,7 @@ ifneq ($(RIOT_CI_BUILD),1)
   ifneq (iotlab,$(PROGRAMMER))
     ifneq (,$(PROGRAMMERS_SUPPORTED))
       ifeq (,$(filter $(PROGRAMMER),$(PROGRAMMERS_SUPPORTED)))
-        $(info '$(PROGRAMMER)' programmer is not supported by this board. \
+        $(warning '$(PROGRAMMER)' programmer is not supported by this board. \
                 Supported programmers: '$(PROGRAMMERS_SUPPORTED)')
       endif
     endif
@@ -523,10 +523,6 @@ include $(RIOTMAKE)/ubsan.inc.mk
 # For more information, see http://petereisentraut.blogspot.com/2011/09/ccache-and-clang-part-2.html
 export CCACHE_CPP2=yes
 
-ifeq ($(strip $(MCU)),)
-	MCU = $(CPU)
-endif
-
 # set some settings useful for continuous integration builds
 ifeq ($(RIOT_CI_BUILD),1)
     RIOT_VERSION ?= buildtest
@@ -548,11 +544,9 @@ endif
 # if you want to publish the board into the sources as an uppercase #define
 BOARDDEF = $(call uppercase_and_underscore,$(BOARD))
 CPUDEF = $(call uppercase_and_underscore,$(CPU))
-MCUDEF = $(call uppercase_and_underscore,$(MCU))
 CFLAGS += -DRIOT_APPLICATION=\"$(APPLICATION)\"
 CFLAGS += -DBOARD_$(BOARDDEF)=\"$(BOARD)\" -DRIOT_BOARD=BOARD_$(BOARDDEF)
 CFLAGS += -DCPU_$(CPUDEF)=\"$(CPU)\" -DRIOT_CPU=CPU_$(CPUDEF)
-CFLAGS += -DMCU_$(MCUDEF)=\"$(MCU)\" -DRIOT_MCU=MCU_$(MCUDEF)
 
 # Feature test default CFLAGS and LINKFLAGS for the set compiled.
 include $(RIOTMAKE)/cflags.inc.mk
@@ -812,7 +806,7 @@ endif
 	$(call check_cmd,$(CC),Compiler)
 
 ..build-message: $(if $(SHOULD_RUN_KCONFIG), check-kconfig-errors)
-	@$(COLOR_ECHO) '$(COLOR_GREEN)Building application "$(APPLICATION)" for "$(BOARD)" with MCU "$(MCU)".$(COLOR_RESET)'
+	@$(COLOR_ECHO) '$(COLOR_GREEN)Building application "$(APPLICATION)" for "$(BOARD)" with CPU "$(CPU)".$(COLOR_RESET)'
 	@$(COLOR_ECHO)
 
 # The `clean` needs to be serialized before everything else.
@@ -1072,6 +1066,9 @@ $(RIOTBUILD_CONFIG_HEADER_C).in: FORCE | $(CLEAN)
 CFLAGS_WITH_MACROS += $(CFLAGS)
 CFLAGS_WITH_MACROS += -DRIOT_VERSION=\"$(RIOT_VERSION)\"
 CFLAGS_WITH_MACROS += -DRIOT_VERSION_CODE=$(RIOT_VERSION_CODE)
+ifneq (,$(RIOT_VERSION_EXTRA))
+  CFLAGS_WITH_MACROS += -DCONFIG_RIOT_VERSION_EXTRA=\""$(RIOT_VERSION_EXTRA)"\"
+endif
 # MODULE_NAME defines. Declared in 'makefiles/modules.inc.mk'
 CFLAGS_WITH_MACROS += $(EXTDEFINES)
 

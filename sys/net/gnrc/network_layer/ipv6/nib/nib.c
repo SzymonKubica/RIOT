@@ -1621,7 +1621,9 @@ static uint32_t _handle_pio(gnrc_netif_t *netif, const icmpv6_hdr_t *icmpv6,
     valid_ltime = byteorder_ntohl(pio->valid_ltime);
     pref_ltime = byteorder_ntohl(pio->pref_ltime);
     if ((pio->len != NDP_OPT_PI_LEN) || (icmpv6->type != ICMPV6_RTR_ADV) ||
-        ipv6_addr_is_link_local(&pio->prefix) || (valid_ltime < pref_ltime)) {
+        ipv6_addr_is_link_local(&pio->prefix) || (valid_ltime < pref_ltime) ||
+        /* https://datatracker.ietf.org/doc/html/rfc6775#section-5.4 */
+        (gnrc_netif_is_6ln(netif) && (pio->flags & NDP_OPT_PI_FLAGS_L))) {
         DEBUG("nib: ignoring PIO with invalid data\n");
         return UINT32_MAX;
     }
@@ -1653,7 +1655,7 @@ static uint32_t _handle_pio(gnrc_netif_t *netif, const icmpv6_hdr_t *icmpv6,
 
         if (valid_ltime < UINT32_MAX) { /* UINT32_MAX means infinite lifetime */
             /* the valid lifetime is given in seconds, but our timers work in
-             * microseconds, so we have to scale down to the smallest possible
+             * milliseconds, so we have to scale down to the smallest possible
              * value (UINT32_MAX - 1). This is however alright since we ask for
              * a new router advertisement before this timeout expires */
             valid_ltime = (valid_ltime > (UINT32_MAX / MS_PER_SEC)) ?
@@ -1720,20 +1722,11 @@ static uint32_t _handle_rio(gnrc_netif_t *netif, const ipv6_hdr_t *ipv6,
     DEBUG("     - Route lifetime: %" PRIu32 "\n",
           byteorder_ntohl(rio->route_ltime));
 
-    if (route_ltime < UINT32_MAX) { /* UINT32_MAX means infinite lifetime */
-        /* the valid lifetime is given in seconds, but our timers work in
-         * microseconds, so we have to scale down to the smallest possible
-         * value (UINT32_MAX - 1). This is however alright since we ask for
-         * a new router advertisement before this timeout expires */
-        route_ltime = (route_ltime > (UINT32_MAX / MS_PER_SEC)) ?
-                      (UINT32_MAX - 1) : route_ltime * MS_PER_SEC;
-    }
-
     if (route_ltime == 0) {
         gnrc_ipv6_nib_ft_del(&rio->prefix, rio->prefix_len);
     } else {
         gnrc_ipv6_nib_ft_add(&rio->prefix, rio->prefix_len, &ipv6->src,
-                             netif->pid, route_ltime);
+                             netif->pid, route_ltime == UINT32_MAX ? 0 : route_ltime);
     }
 
     return route_ltime;
