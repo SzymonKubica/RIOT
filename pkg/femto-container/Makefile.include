@@ -1,4 +1,5 @@
 INCLUDES += -I$(RIOTPKG)/femto-container/include
 INCLUDES += -I$(RIOTBASE)/femto-containers/include
 DIRS += $(RIOTPKG)/femto-container/contrib
+INCLUDES += $(RIOTBASE)/femto-containers/
 CFLAGS += -DFEMTO_CONTAINER_EXTERNAL_CALLS=1

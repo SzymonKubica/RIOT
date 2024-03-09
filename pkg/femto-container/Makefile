@@ -7,4 +7,4 @@ PKG_SOURCE_LOCAL = $(RIOTBASE)/femto-containers
 include $(RIOTBASE)/pkg/pkg.mk
 
 all:
-	$(QQ)"$(MAKE)" -C $(PKG_SOURCE_LOCAL)/src -f $(PKG_DIR)/Makefile.femto MODULE=$(RIOTBASE)/$(PKG_NAME)
+	$(QQ)"$(MAKE)" -C $(PKG_SOURCE_LOCAL)/src -f $(PKG_DIR)/Makefile.femto MODULE=$(PKG_NAME)
