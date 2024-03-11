@@ -28,6 +28,9 @@
 /**
  * @brief   Define the number of configured sensors
  */
+#define ARRAY_SIZE(array) \
+    (sizeof(array) / sizeof(*array))
+
 #define DHT_NUM     ARRAY_SIZE(dht_params)
 
 /**
