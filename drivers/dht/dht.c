@@ -37,21 +37,21 @@
 #include "time_units.h"
 #include "ztimer.h"
 
-#define ENABLE_DEBUG            1
+#define ENABLE_DEBUG 1
 #include "debug.h"
 
 /* Every pulse send by the DHT longer than 40µs is interpreted as 1 */
-#define READ_THRESHOLD          (40U)
+#define READ_THRESHOLD (40U)
 /* If an expected pulse is not detected within 85µs, something is wrong */
-#define SPIN_TIMEOUT            (85U)
+#define SPIN_TIMEOUT (85U)
 /* The start signal by pulling data low for at least 18 ms for DHT11, at
  * most 20 ms (AM2301 / DHT22 / DHT21). Then release the bus and the
  * sensor should respond by pulling data low for 80 µs, then release for
  * 80µs before start sending data. */
-#define START_LOW_TIME          (19U * US_PER_MS)
-#define START_THRESHOLD         (75U)
+#define START_LOW_TIME (19U * US_PER_MS)
+#define START_THRESHOLD (75U)
 /* DHTs have to wait for power 1 or 2 seconds depending on the model */
-#define POWER_WAIT_TIMEOUT      (2U * US_PER_SEC)
+#define POWER_WAIT_TIMEOUT (2U * US_PER_SEC)
 
 enum {
     BYTEPOS_HUMIDITY_HIGH = 0,
@@ -74,17 +74,18 @@ static void _wait_for_level(gpio_t pin, bool expected, uint32_t start)
     /* Calls to ztimer_now() can be relatively slow on low end platforms.
      * Mixing in a busy down-counting loop solves issues e.g. on AVR boards. */
     // For some reason doing ztimer now here is broken
-    //while (((bool)gpio_read(pin) != expected) && (++pre_timeout
+    // while (((bool)gpio_read(pin) != expected) && (++pre_timeout
     //    || ztimer_now(ZTIMER_USEC) < start + SPIN_TIMEOUT)) {}
 
     // This one doesn't block but doen't introduce the ztimer perturbations to
     // the busy loop.
     int counter = 0;
+
     while ((bool)gpio_read(pin) != expected) {
         counter = (counter + 1) % 1000;
         if (counter == 0) {
             if (ztimer_now(ZTIMER_USEC) > start + SPIN_TIMEOUT) {
-            break;
+                break;
             }
         }
     }
@@ -105,7 +106,8 @@ static int _send_start_signal(dht_t *dev)
     _wait_for_level(dev->params.pin, 0, start);
     uint32_t end = ztimer_now(ZTIMER_USEC);
     if (end - start > START_THRESHOLD) {
-        DEBUG("[dht] error: response low pulse %d > START_THRESHOLD\n", end - start);
+        DEBUG("[dht] error: response low pulse %d > START_THRESHOLD\n",
+              end - start);
         return -ENODEV;
     }
     _wait_for_level(dev->params.pin, 1, start);
@@ -113,7 +115,8 @@ static int _send_start_signal(dht_t *dev)
     _wait_for_level(dev->params.pin, 0, start);
     end = ztimer_now(ZTIMER_USEC);
     if (end - start < START_THRESHOLD - 10) {
-        DEBUG("[dht] error: response high pulse %d < START_THRESHOLD\n", end - start);
+        DEBUG("[dht] error: response high pulse %d < START_THRESHOLD\n",
+              end - start);
         return -ENODEV;
     }
     return 0;
@@ -161,8 +164,8 @@ static int _parse_raw_values(dht_t *dev, uint8_t *data)
     case DHT11:
     case DHT11_2022:
         DEBUG_PUTS("[dht] parse raw values with DHT11 data format");
-        dev->last_val.humidity = data[BYTEPOS_HUMIDITY_HIGH] * 10
-                               + data[BYTEPOS_HUMIDITY_LOW];
+        dev->last_val.humidity =
+            data[BYTEPOS_HUMIDITY_HIGH] * 10 + data[BYTEPOS_HUMIDITY_LOW];
         /* MSB for integral temperature byte gives sign, remaining is
          * abs() of value (beware: this is not two's complement!) */
         is_negative = data[BYTEPOS_TEMPERATURE_LOW] & 0x80;
@@ -175,24 +178,23 @@ static int _parse_raw_values(dht_t *dev, uint8_t *data)
         if (data[BYTEPOS_TEMPERATURE_LOW] >= 10) {
             return -ERANGE;
         }
-        dev->last_val.temperature = data[BYTEPOS_TEMPERATURE_HIGH] * 10
-                                  + data[BYTEPOS_TEMPERATURE_LOW];
+        dev->last_val.temperature =
+            data[BYTEPOS_TEMPERATURE_HIGH] * 10 + data[BYTEPOS_TEMPERATURE_LOW];
         break;
     /* AM2301 == DHT21 == DHT22 (same value in enum),
      * so all are handled here */
     case DHT22:
         DEBUG_PUTS("[dht] parse raw values with DHT22 data format");
-        dev->last_val.humidity = (int16_t)(
-                                    (data[BYTEPOS_HUMIDITY_HIGH] << 8)
-                                    | data[BYTEPOS_HUMIDITY_LOW]);
+        dev->last_val.humidity = (int16_t)((data[BYTEPOS_HUMIDITY_HIGH] << 8) |
+                                           data[BYTEPOS_HUMIDITY_LOW]);
         is_negative = data[BYTEPOS_TEMPERATURE_HIGH] & 0x80;
         data[BYTEPOS_TEMPERATURE_HIGH] &= ~0x80;
-        dev->last_val.temperature = (int16_t)(
-                                    (data[BYTEPOS_TEMPERATURE_HIGH] << 8)
-                                    | data[BYTEPOS_TEMPERATURE_LOW]);
+        dev->last_val.temperature =
+            (int16_t)((data[BYTEPOS_TEMPERATURE_HIGH] << 8) |
+                      data[BYTEPOS_TEMPERATURE_LOW]);
         break;
     default:
-        return -ENOSYS;     /* ENOSYS 38 Function not implemented */
+        return -ENOSYS; /* ENOSYS 38 Function not implemented */
     }
 
     if (is_negative) {
@@ -205,14 +207,18 @@ static int _parse_raw_values(dht_t *dev, uint8_t *data)
 int dht_init(dht_t *dev, const dht_params_t *params)
 {
     int16_t timeout;
+#ifdef BOARD_NATIVE
+    printf("Running on native, dht disabled\n");
+    return 0;
+#endif
 
     DEBUG_PUTS("[dht] dht_init");
 
     /* check parameters and configuration */
     assert(dev && params);
     /* AM2301 == DHT21 == DHT22 (same value in enum) */
-    assert((params->type == DHT11) || (params->type == DHT11_2022)
-        || (params->type == DHT22));
+    assert((params->type == DHT11) || (params->type == DHT11_2022) ||
+           (params->type == DHT22));
 
     memset(dev, 0, sizeof(dht_t));
     dev->params = *params;
@@ -227,22 +233,21 @@ int dht_init(dht_t *dev, const dht_params_t *params)
     if (timeout < 0) {
         DEBUG_PUTS("[dht] dht_init: error: Invalid cross-device link");
         return -EXDEV;
-    }
-    else {
+    } else {
         DEBUG("\n[dht] dht_init: power-up duration: %" PRIi16 " ms\n",
-                (int16_t)(POWER_WAIT_TIMEOUT / US_PER_MS - timeout));
+              (int16_t)(POWER_WAIT_TIMEOUT / US_PER_MS - timeout));
     }
     /* The previous test does not ensure the sensor presence in case an
      * external pull-up resistor is used. */
-    while (_send_start_signal(dev) == -ENODEV
-        && (timeout -= START_LOW_TIME / US_PER_MS) > 0) {}
+    while (_send_start_signal(dev) == -ENODEV &&
+           (timeout -= START_LOW_TIME / US_PER_MS) > 0) {
+    }
     if (timeout < 0) {
         DEBUG_PUTS("[dht] dht_init: error: No such device");
         return -ENODEV;
-    }
-    else {
+    } else {
         DEBUG("\n[dht] dht_init: presence check duration: %" PRIi16 " ms\n",
-                (int16_t)(POWER_WAIT_TIMEOUT / US_PER_MS - timeout));
+              (int16_t)(POWER_WAIT_TIMEOUT / US_PER_MS - timeout));
     }
 
     DEBUG_PUTS("[dht] dht_init: success");
@@ -269,20 +274,19 @@ int dht_read(dht_t *dev, int16_t *temp, int16_t *hum)
     /* read the data */
     _busy_wait_read(&data);
 
-    //if (_validate_checksum(data.data) == -EIO) {
-    //    DEBUG("[dht] error: checksum doesn't match\n"
-    //          "[dht] RAW data: 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x\n",
-    //          (unsigned)data.data[0], (unsigned)data.data[1],
-    //          (unsigned)data.data[2], (unsigned)data.data[3],
-    //          (unsigned)data.data[4]);
-    //    return -EIO;
-    //}
+    if (_validate_checksum(data.data) == -EIO) {
+        DEBUG("[dht] error: checksum doesn't match\n"
+              "[dht] RAW data: 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x\n",
+              (unsigned)data.data[0], (unsigned)data.data[1],
+              (unsigned)data.data[2], (unsigned)data.data[3],
+              (unsigned)data.data[4]);
+        return -EIO;
+    }
 
     if ((ret = _parse_raw_values(dev, data.data)) < 0) {
         if (ret == -ENOSYS) {
             DEBUG_PUTS("[dht] error: data format not implemented");
-        }
-        else if (ret == -ERANGE) {
+        } else if (ret == -ERANGE) {
             DEBUG_PUTS("[dht] error: invalid temperature low byte");
         }
         return ret;
