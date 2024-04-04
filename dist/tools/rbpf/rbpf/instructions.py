@@ -4,12 +4,17 @@ from abc import abstractmethod
 from collections import namedtuple
 
 DEBUG_ENABLED = False
+
+
 def debug_print(data):
     if DEBUG_ENABLED:
         print(*data)
 
-LDDW_STRUCT = struct.Struct('<BBHiBBHi')
-LDDW = namedtuple('LDDW', 'opcode registers offset immediate_l null1 null2 null3 immediate_h')
+
+LDDW_STRUCT = struct.Struct("<BBHiBBHi")
+LDDW = namedtuple(
+    "LDDW", "opcode registers offset immediate_l null1 null2 null3 immediate_h"
+)
 
 LDDW_OPCODE = 0x18
 LDDWD_OPCODE = 0xB8
@@ -18,10 +23,10 @@ LDDWR_OPCODE = 0xD8
 
 class Instruction(object):
 
-    OPERATION_STRUCT = struct.Struct('<BBhI')
+    OPERATION_STRUCT = struct.Struct("<BBhI")
     OPCODE = 0x00
     LENGTH = 8
-    COMPRESSED = struct.Struct('<BB')
+    COMPRESSED = struct.Struct("<BB")
 
     def __init__(self, registers, offset, immediate, address=0, compressed_address=0):
         self.address = address
@@ -32,12 +37,15 @@ class Instruction(object):
 
     @classmethod
     def from_bytes(cls, instruction: bytes, address=0, compressed_address=0):
-        opcode, registers, offset, immediate = \
-            cls.OPERATION_STRUCT.unpack(instruction)
+        opcode, registers, offset, immediate = cls.OPERATION_STRUCT.unpack(instruction)
         if cls.opcode() != opcode:
-            logging.critical(f"Opcode not matching expected, got {hex(opcode)}, expected {hex(cls.opcode())}")
+            logging.critical(
+                f"Opcode not matching expected, got {hex(opcode)}, expected {hex(cls.opcode())}"
+            )
             return None
-        logging.debug(f"Creating instruction {hex(opcode)} with {registers}, {offset}, {immediate}")
+        logging.debug(
+            f"Creating instruction {hex(opcode)} with {registers}, {offset}, {immediate}"
+        )
         return cls(registers, offset, immediate, address, compressed_address)
 
     @classmethod
@@ -45,7 +53,9 @@ class Instruction(object):
         fields = cls.COMPRESSED.unpack_from(instruction, 0)
         opcode, registers, offset, immediate = cls.expand_compressed(fields)
         if cls.opcode() != opcode:
-            logging.critical(f"Opcode not matching expected, got {hex(opcode)}, expected {hex(cls.opcode())}")
+            logging.critical(
+                f"Opcode not matching expected, got {hex(opcode)}, expected {hex(cls.opcode())}"
+            )
             return None
         return cls(registers, offset, immediate, address, compressed_address)
 
@@ -66,11 +76,11 @@ class Instruction(object):
 
     @property
     def src_register(self):
-        return (self.registers & 0xf0) >> 4
+        return (self.registers & 0xF0) >> 4
 
     @property
     def dst_register(self):
-        return (self.registers & 0x0f)
+        return self.registers & 0x0F
 
     def asm_print(self):
         return f"r{self.dst_register} = r{self.src_register}"
@@ -79,16 +89,18 @@ class Instruction(object):
         return self.asm_print()
 
     def bytes(self):
-        return self.OPERATION_STRUCT.pack(self.OPCODE, self.registers, self.offset, self.immediate)
+        return self.OPERATION_STRUCT.pack(
+            self.OPCODE, self.registers, self.offset, self.immediate
+        )
 
     def full_print(self):
-        hexdump = ' '.join(map('{0:0>2x}'.format, list(self.bytes())))
+        hexdump = " ".join(map("{0:0>2x}".format, list(self.bytes())))
         asm = self.asm_print()
         return f"{hex(self.address).rjust(7)}:\t{hexdump} {asm}"
 
     def compressed_print(self):
         compressed_form = self.compress()
-        hexdump = ' '.join(map('{0:0>2x}'.format, list(compressed_form)))
+        hexdump = " ".join(map("{0:0>2x}".format, list(compressed_form)))
         asm = self.compressed_asm_print()
         return f"{hex(self.compressed_address).rjust(7)}:\t{hexdump.ljust(24)} {asm}"
 
@@ -100,10 +112,11 @@ class Instruction(object):
     def compressed_size(cls):
         return cls.COMPRESSED.size
 
+
 class AluInstruction(Instruction):
 
-    OPERAND = '+'
-    COMPRESSED = struct.Struct('<BB')
+    OPERAND = "+"
+    COMPRESSED = struct.Struct("<BB")
 
     @property
     def operand(self):
@@ -118,8 +131,8 @@ class AluInstruction(Instruction):
 
 class AluImmInstruction(AluInstruction):
 
-    COMPRESSED = struct.Struct('<BBI')
-    COMPRESSED_LEN = 6 # 2 byte
+    COMPRESSED = struct.Struct("<BBI")
+    COMPRESSED_LEN = 6  # 2 byte
 
     def asm_print(self):
         return f"r{self.dst_register} {self.operand}= {self.immediate}"
@@ -133,87 +146,87 @@ class AluImmInstruction(AluInstruction):
 
 
 class AddImmInstruction(AluImmInstruction):
-    OPERAND = '+'
+    OPERAND = "+"
     OPCODE = 0x07
 
 
 class AddInstruction(AluInstruction):
-    OPERAND = '+'
-    OPCODE = 0x0f
+    OPERAND = "+"
+    OPCODE = 0x0F
 
 
 class SubImmInstruction(AluImmInstruction):
-    OPERAND = '-'
+    OPERAND = "-"
     OPCODE = 0x17
 
 
 class SubInstruction(AluInstruction):
-    OPERAND = '-'
-    OPCODE = 0x1f
+    OPERAND = "-"
+    OPCODE = 0x1F
 
 
 class MulImmInstruction(AluImmInstruction):
-    OPERAND = '*'
+    OPERAND = "*"
     OPCODE = 0x27
 
 
 class MulInstruction(AluInstruction):
-    OPERAND = '*'
-    OPCODE = 0x2f
+    OPERAND = "*"
+    OPCODE = 0x2F
 
 
 class DivImmInstruction(AluImmInstruction):
-    OPERAND = '/'
+    OPERAND = "/"
     OPCODE = 0x37
 
 
 class DivInstruction(AluInstruction):
-    OPERAND = '/'
-    OPCODE = 0x3f
+    OPERAND = "/"
+    OPCODE = 0x3F
 
 
 class OrImmInstruction(AluImmInstruction):
-    OPERAND = '|'
+    OPERAND = "|"
     OPCODE = 0x47
 
 
 class OrInstruction(AluInstruction):
-    OPERAND = '|'
-    OPCODE = 0x4f
+    OPERAND = "|"
+    OPCODE = 0x4F
 
 
 class AndImmInstruction(AluImmInstruction):
-    OPERAND = '&'
+    OPERAND = "&"
     OPCODE = 0x57
 
 
 class AndInstruction(AluInstruction):
-    OPERAND = '&'
-    OPCODE = 0x5f
+    OPERAND = "&"
+    OPCODE = 0x5F
 
 
 class LSHImmInstruction(AluImmInstruction):
-    OPERAND = '<<'
+    OPERAND = "<<"
     OPCODE = 0x67
 
 
 class LSHInstruction(AluInstruction):
-    OPERAND = '<<'
-    OPCODE = 0x6f
+    OPERAND = "<<"
+    OPCODE = 0x6F
 
 
 class RSHImmInstruction(AluImmInstruction):
-    OPERAND = '>>'
+    OPERAND = ">>"
     OPCODE = 0x77
 
 
 class RSHInstruction(AluInstruction):
-    OPERAND = '>>'
-    OPCODE = 0x7f
+    OPERAND = ">>"
+    OPCODE = 0x7F
 
 
 class NegInstruction(AluInstruction):
-    OPERAND = '-'
+    OPERAND = "-"
     OPCODE = 0x87
 
     def asm_print(self):
@@ -221,48 +234,48 @@ class NegInstruction(AluInstruction):
 
 
 class ModImmInstruction(AluImmInstruction):
-    OPERAND = '%'
+    OPERAND = "%"
     OPCODE = 0x97
 
 
 class ModInstruction(AluInstruction):
-    OPERAND = '%'
-    OPCODE = 0x9f
+    OPERAND = "%"
+    OPCODE = 0x9F
 
 
 class XorImmInstruction(AluImmInstruction):
-    OPERAND = '^'
-    OPCODE = 0xa7
+    OPERAND = "^"
+    OPCODE = 0xA7
 
 
 class XorInstruction(AluInstruction):
-    OPERAND = '^'
-    OPCODE = 0xaf
+    OPERAND = "^"
+    OPCODE = 0xAF
 
 
 class MovImmInstruction(AluImmInstruction):
-    OPERAND = ''
-    OPCODE = 0xb7
+    OPERAND = ""
+    OPCODE = 0xB7
 
 
 class MovInstruction(AluInstruction):
-    OPERAND = ''
-    OPCODE = 0xbf
+    OPERAND = ""
+    OPCODE = 0xBF
 
 
 class ARSHImmInstruction(AluImmInstruction):
-    OPERAND = '>>'
-    OPCODE = 0xc7
+    OPERAND = ">>"
+    OPCODE = 0xC7
 
 
 class ARSHInstruction(AluInstruction):
-    OPERAND = '>>'
-    OPCODE = 0xcf
+    OPERAND = ">>"
+    OPCODE = 0xCF
 
 
 class MemInstruction(Instruction):
 
-    COMPRESSED = struct.Struct('<BBh')
+    COMPRESSED = struct.Struct("<BBh")
 
     @property
     def size(self):
@@ -299,20 +312,24 @@ class LoadXInstruction(MemInstruction):
     def asm_print(self):
         return f"r{self.dst_register} = *({self.size_str}*)(r{self.src_register} + {self.offset})"
 
+
 class StoreXInstruction(MemInstruction):
 
     def asm_print(self):
         return f"*({self.size_str}*)(r{self.dst_register} + {self.offset}) = r{self.src_register}"
 
+
 class StoreInstruction(MemInstruction):
 
-    COMPRESSED = struct.Struct('<BBhI')
+    COMPRESSED = struct.Struct("<BBhI")
 
     def asm_print(self):
         return f"*({self.size_str}*)(r{self.dst_register} + {self.offset}) = {self.immediate}"
 
     def compress(self):
-        return self.COMPRESSED.pack(self.OPCODE, self.registers, self.offset, self.immediate)
+        return self.COMPRESSED.pack(
+            self.OPCODE, self.registers, self.offset, self.immediate
+        )
 
     @classmethod
     def expand_compressed(cls, fields):
@@ -321,13 +338,21 @@ class StoreInstruction(MemInstruction):
 
 class LDDWInstruction(LoadInstruction):
 
-    COMPRESSED = struct.Struct('<BBQ')
+    COMPRESSED = struct.Struct("<BBQ")
 
     OPCODE = 0x18
     LENGTH = 16
-    OPERATION_STRUCT = struct.Struct('<BBhIBBhI')
+    OPERATION_STRUCT = struct.Struct("<BBhIBBhI")
 
-    def __init__(self, registers, offset, immediate_l, immediate_h, address=0, compressed_address=0):
+    def __init__(
+        self,
+        registers,
+        offset,
+        immediate_l,
+        immediate_h,
+        address=0,
+        compressed_address=0,
+    ):
         self.immediate_l = immediate_l
         self.immediate_h = immediate_h
         debug_print(f"imm {hex(self.immediate_l)}, {hex(self.immediate_h)}")
@@ -336,27 +361,44 @@ class LDDWInstruction(LoadInstruction):
 
     @classmethod
     def from_bytes(cls, instruction: bytes, address=0, compressed_address=0):
-        opcode, registers, offset, immediate_l, _, _, _, immediate_h = \
+        opcode, registers, offset, immediate_l, _, _, _, immediate_h = (
             cls.OPERATION_STRUCT.unpack(instruction)
+        )
         if cls.opcode() != opcode:
-            logging.critical(f"Opcode not matching expected, got {opcode}, expected {cls.opcode()}")
+            logging.critical(
+                f"Opcode not matching expected, got {opcode}, expected {cls.opcode()}"
+            )
             return None
-        return cls(registers, offset, immediate_l, immediate_h, address, compressed_address)
+        return cls(
+            registers, offset, immediate_l, immediate_h, address, compressed_address
+        )
 
     @classmethod
     def from_compressed(cls, instruction: bytes, address=0, compressed_address=0):
         fields = cls.COMPRESSED.unpack_from(instruction, 0)
         opcode, registers, offset, immediate = cls.expand_compressed(fields)
         if cls.opcode() != opcode:
-            logging.critical(f"Opcode not matching expected, got {hex(opcode)}, expected {hex(cls.opcode())}")
+            logging.critical(
+                f"Opcode not matching expected, got {hex(opcode)}, expected {hex(cls.opcode())}"
+            )
             return None
-        immediate_l = immediate & 0xffffffff
+        immediate_l = immediate & 0xFFFFFFFF
         immediate_h = immediate >> 32
-        return cls(registers, offset, immediate_l, immediate_h, address, compressed_address)
+        return cls(
+            registers, offset, immediate_l, immediate_h, address, compressed_address
+        )
 
     def bytes(self):
-        return self.OPERATION_STRUCT.pack(self.OPCODE, self.registers, self.offset, self.immediate_l,
-                                          0, 0, 0, self.immediate_h)
+        return self.OPERATION_STRUCT.pack(
+            self.OPCODE,
+            self.registers,
+            self.offset,
+            self.immediate_l,
+            0,
+            0,
+            0,
+            self.immediate_h,
+        )
 
     def compress(self):
         return self.COMPRESSED.pack(self.OPCODE, self.registers, self.immediate)
@@ -365,19 +407,22 @@ class LDDWInstruction(LoadInstruction):
     def expand_compressed(cls, fields):
         return fields[0], fields[1], 0, fields[2]
 
+
 class LDDWDInstruction(LDDWInstruction):
 
-    OPCODE = 0xb8
+    OPCODE = 0xB8
 
     def asm_print(self):
         return f"r{self.dst_register} = {self.immediate} + .data"
 
+
 class LDDWRInstruction(LDDWInstruction):
 
-    OPCODE = 0xd8
+    OPCODE = 0xD8
 
     def asm_print(self):
         return f"r{self.dst_register} = {self.immediate} + .rodata"
+
 
 class LDXDWInstruction(LoadXInstruction):
 
@@ -401,7 +446,7 @@ class LDXBInstruction(LoadXInstruction):
 
 class STXDWInstruction(StoreXInstruction):
 
-    OPCODE = 0x7b
+    OPCODE = 0x7B
 
 
 class STXWInstruction(StoreXInstruction):
@@ -411,7 +456,7 @@ class STXWInstruction(StoreXInstruction):
 
 class STXHInstruction(StoreXInstruction):
 
-    OPCODE = 0x6b
+    OPCODE = 0x6B
 
 
 class STXBInstruction(StoreXInstruction):
@@ -421,7 +466,7 @@ class STXBInstruction(StoreXInstruction):
 
 class STDWInstruction(StoreInstruction):
 
-    OPCODE = 0x7a
+    OPCODE = 0x7A
 
 
 class STWInstruction(StoreInstruction):
@@ -431,7 +476,7 @@ class STWInstruction(StoreInstruction):
 
 class STHInstruction(StoreInstruction):
 
-    OPCODE = 0x6a
+    OPCODE = 0x6A
 
 
 class STBInstruction(StoreInstruction):
@@ -441,8 +486,8 @@ class STBInstruction(StoreInstruction):
 
 class BranchInstruction(Instruction):
 
-    OPERAND = '=='
-    COMPRESSED = struct.Struct('<BBh')
+    OPERAND = "=="
+    COMPRESSED = struct.Struct("<BBh")
 
     def __init__(self, registers, offset, immediate, address=0, compressed_address=0):
         self.target = None
@@ -450,7 +495,7 @@ class BranchInstruction(Instruction):
 
     def set_target(self, target: Instruction):
         self.target = target
-        self.offset = int((self.target.address - self.address - self.LENGTH)/8)
+        self.offset = int((self.target.address - self.address - self.LENGTH) / 8)
 
     @property
     def operand(self):
@@ -459,7 +504,11 @@ class BranchInstruction(Instruction):
     def _compressed_offset(self):
         if self.target is None:
             return None
-        return self.target.compressed_address - self.compressed_address - self.compressed_size()
+        return (
+            self.target.compressed_address
+            - self.compressed_address
+            - self.compressed_size()
+        )
 
     @classmethod
     def expand_compressed(cls, fields):
@@ -472,11 +521,14 @@ class BranchInstruction(Instruction):
         return f"if r{self.dst_register} {self.operand} r{self.src_register} goto {self.offset}"
 
     def compress(self):
-        return self.COMPRESSED.pack(self.OPCODE, self.registers, self._compressed_offset())
+        return self.COMPRESSED.pack(
+            self.OPCODE, self.registers, self._compressed_offset()
+        )
+
 
 class BranchImmInstruction(BranchInstruction):
 
-    COMPRESSED = struct.Struct('<BBhI')
+    COMPRESSED = struct.Struct("<BBhI")
 
     @classmethod
     def expand_compressed(cls, fields):
@@ -489,12 +541,15 @@ class BranchImmInstruction(BranchInstruction):
         return f"if r{self.dst_register} {self.operand} {self.immediate} goto {self.offset}"
 
     def compress(self):
-        return self.COMPRESSED.pack(self.OPCODE, self.registers, self._compressed_offset(), self.immediate)
+        return self.COMPRESSED.pack(
+            self.OPCODE, self.registers, self._compressed_offset(), self.immediate
+        )
+
 
 class AlwaysBranchInstruction(BranchInstruction):
 
     OPCODE = 0x05
-    COMPRESSED = struct.Struct('<BBh')
+    COMPRESSED = struct.Struct("<BBh")
 
     def asm_print(self):
         return f"goto {self.offset}"
@@ -510,7 +565,7 @@ class AlwaysBranchInstruction(BranchInstruction):
 class EqBranchInstruction(BranchInstruction):
 
     OPERAND = "=="
-    OPCODE = 0x1d
+    OPCODE = 0x1D
 
 
 class EqBranchImmInstruction(BranchImmInstruction):
@@ -522,7 +577,7 @@ class EqBranchImmInstruction(BranchImmInstruction):
 class GtBranchInstruction(BranchInstruction):
 
     OPERAND = ">"
-    OPCODE = 0x2d
+    OPCODE = 0x2D
 
 
 class GtBranchImmInstruction(BranchImmInstruction):
@@ -534,7 +589,7 @@ class GtBranchImmInstruction(BranchImmInstruction):
 class GeBranchInstruction(BranchInstruction):
 
     OPERAND = ">="
-    OPCODE = 0x3d
+    OPCODE = 0x3D
 
 
 class GeBranchImmInstruction(BranchImmInstruction):
@@ -546,31 +601,31 @@ class GeBranchImmInstruction(BranchImmInstruction):
 class LtBranchInstruction(BranchInstruction):
 
     OPERAND = "<"
-    OPCODE = 0xad
+    OPCODE = 0xAD
 
 
 class LtBranchImmInstruction(BranchImmInstruction):
 
     OPERAND = "<"
-    OPCODE = 0xa5
+    OPCODE = 0xA5
 
 
 class LeBranchInstruction(BranchInstruction):
 
     OPERAND = "<="
-    OPCODE = 0xbd
+    OPCODE = 0xBD
 
 
 class LeBranchImmInstruction(BranchImmInstruction):
 
     OPERAND = "<="
-    OPCODE = 0xb5
+    OPCODE = 0xB5
 
 
 class SetBranchInstruction(BranchInstruction):
 
     OPERAND = "&"
-    OPCODE = 0x4d
+    OPCODE = 0x4D
 
 
 class SetBranchImmInstruction(BranchImmInstruction):
@@ -582,7 +637,7 @@ class SetBranchImmInstruction(BranchImmInstruction):
 class NeBranchInstruction(BranchInstruction):
 
     OPERAND = "!="
-    OPCODE = 0x5d
+    OPCODE = 0x5D
 
 
 class NeBranchImmInstruction(BranchImmInstruction):
@@ -594,7 +649,7 @@ class NeBranchImmInstruction(BranchImmInstruction):
 class SGtBranchInstruction(BranchInstruction):
 
     OPERAND = ">"
-    OPCODE = 0x6d
+    OPCODE = 0x6D
 
 
 class SGtBranchImmInstruction(BranchImmInstruction):
@@ -606,7 +661,7 @@ class SGtBranchImmInstruction(BranchImmInstruction):
 class SGeBranchInstruction(BranchInstruction):
 
     OPERAND = ">="
-    OPCODE = 0x7d
+    OPCODE = 0x7D
 
 
 class SGeBranchImmInstruction(BranchImmInstruction):
@@ -618,25 +673,25 @@ class SGeBranchImmInstruction(BranchImmInstruction):
 class SLtBranchInstruction(BranchInstruction):
 
     OPERAND = "<"
-    OPCODE = 0xcd
+    OPCODE = 0xCD
 
 
 class SLtBranchImmInstruction(BranchImmInstruction):
 
     OPERAND = "<"
-    OPCODE = 0xc5
+    OPCODE = 0xC5
 
 
 class SLeBranchInstruction(BranchInstruction):
 
     OPERAND = "<="
-    OPCODE = 0xdd
+    OPCODE = 0xDD
 
 
 class SLeBranchImmInstruction(BranchImmInstruction):
 
     OPERAND = "<="
-    OPCODE = 0xd5
+    OPCODE = 0xD5
 
 
 class CallInstruction(AluImmInstruction):
@@ -649,7 +704,7 @@ class CallInstruction(AluImmInstruction):
 
 class ReturnInstruction(Instruction):
 
-    COMPRESSED = struct.Struct('<BB')
+    COMPRESSED = struct.Struct("<BB")
 
     OPCODE = 0x95
 
@@ -724,7 +779,6 @@ INSTRUCTIONS = {
     SLeBranchImmInstruction.OPCODE: SLeBranchImmInstruction,
     CallInstruction.OPCODE: CallInstruction,
     ReturnInstruction.OPCODE: ReturnInstruction,
-
     # Custom rBPF
     LDDWDInstruction.OPCODE: LDDWDInstruction,
     LDDWRInstruction.OPCODE: LDDWRInstruction,
@@ -743,41 +797,62 @@ def parse_text(text: bytes, compressed=False):
     instructions = []
     offset = 0
     compressed_offset = 0
-    while (offset < len(text) and not compressed) or (compressed_offset < len(text) and compressed):
+    while (offset < len(text) and not compressed) or (
+        compressed_offset < len(text) and compressed
+    ):
         opcode = text[offset] if not compressed else text[compressed_offset]
         if opcode not in INSTRUCTIONS:
             logging.critical(f"Instruction {hex(opcode)} not found")
             return None
         instruction_type = INSTRUCTIONS[opcode]
-        logging.debug(f"Found opcode {hex(opcode)} at {hex(offset)}/{hex(compressed_offset)} with width {instruction_type.LENGTH if not compressed else instruction_type.compressed_size()}")
+        logging.debug(
+            f"Found opcode {hex(opcode)} at {hex(offset)}/{hex(compressed_offset)} with width {instruction_type.LENGTH if not compressed else instruction_type.compressed_size()}"
+        )
         if compressed:
             text_slice = text[compressed_offset:]
-            instruction = instruction_type.from_compressed(text_slice, offset, compressed_offset)
+            instruction = instruction_type.from_compressed(
+                text_slice, offset, compressed_offset
+            )
         else:
-            text_slice = text[offset:offset+instruction_type.LENGTH]
-            instruction = instruction_type.from_bytes(text_slice, offset, compressed_offset)
+            text_slice = text[offset : offset + instruction_type.LENGTH]
+            instruction = instruction_type.from_bytes(
+                text_slice, offset, compressed_offset
+            )
         compressed_offset += instruction_type.compressed_size()
         offset += instruction_type.LENGTH
         instructions.append(instruction)
 
     for instruction in instructions:
         if isinstance(instruction, BranchInstruction):
-            logging.debug(f"Instruction {type(instruction)} at {hex(instruction.address)} with offset is {instruction.offset}")
+            logging.debug(
+                f"Instruction {type(instruction)} at {hex(instruction.address)} with offset is {instruction.offset}"
+            )
             if compressed:
-                target_address = instruction.compressed_address + instruction.offset + instruction.compressed_size()
+                target_address = (
+                    instruction.compressed_address
+                    + instruction.offset
+                    + instruction.compressed_size()
+                )
                 logging.debug(f"Compressed address target at {hex(target_address)}")
             else:
                 target_address = instruction.address + (instruction.offset + 1) * 8
-                logging.debug(f"target {hex(target_address)} = {instruction.address} + {instruction.offset} + 1")
+                logging.debug(
+                    f"target {hex(target_address)} = {instruction.address} + {instruction.offset} + 1"
+                )
             for instr in instructions:
-                compare_address = instr.compressed_address if compressed else instr.address
+                compare_address = (
+                    instr.compressed_address if compressed else instr.address
+                )
                 if compare_address == target_address:
                     instruction.set_target(instr)
-                    logging.info(f"Target address: {hex(target_address)} Matching {instruction} to {instr}")
+                    logging.info(
+                        f"Target address: {hex(target_address)} Matching {instruction} to {instr}"
+                    )
                     break
             else:
                 logging.critical(f"No target found for {instruction}")
     return instructions
+
 
 def compress():
     pass
