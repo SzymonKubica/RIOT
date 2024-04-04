@@ -3,6 +3,11 @@ import logging
 from abc import abstractmethod
 from collections import namedtuple
 
+DEBUG_ENABLED = False
+def debug_print(data):
+    if DEBUG_ENABLED:
+        print(*data)
+
 LDDW_STRUCT = struct.Struct('<BBHiBBHi')
 LDDW = namedtuple('LDDW', 'opcode registers offset immediate_l null1 null2 null3 immediate_h')
 
@@ -325,7 +330,7 @@ class LDDWInstruction(LoadInstruction):
     def __init__(self, registers, offset, immediate_l, immediate_h, address=0, compressed_address=0):
         self.immediate_l = immediate_l
         self.immediate_h = immediate_h
-        print(f"imm {hex(self.immediate_l)}, {hex(self.immediate_h)}")
+        debug_print(f"imm {hex(self.immediate_l)}, {hex(self.immediate_h)}")
         immediate = (self.immediate_h << 32) + self.immediate_l
         super().__init__(registers, offset, immediate, address, compressed_address)
 

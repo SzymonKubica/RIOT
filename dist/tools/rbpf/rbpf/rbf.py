@@ -5,21 +5,31 @@ from elftools.elf.elffile import ELFFile
 from rbpf import instructions
 import itertools
 
-MAGIC = int.from_bytes(b'rBPF', "little")
+MAGIC = int.from_bytes(b"rBPF", "little")
 
-HEADER_STRUCT = struct.Struct('<IIIIIII')
-HEADER = namedtuple('Header', 'magic version flags data_len rodata_len text_len functions_len')
+HEADER_STRUCT = struct.Struct("<IIIIIII")
+HEADER = namedtuple(
+    "Header", "magic version flags data_len rodata_len text_len functions_len"
+)
 
-SYMBOL_STRUCT = struct.Struct('<HHH')
-SYMBOL = namedtuple('Symbol', 'name_offset flags location_offset')
+SYMBOL_STRUCT = struct.Struct("<HHH")
+SYMBOL = namedtuple("Symbol", "name_offset flags location_offset")
 
-TEXT = '.text'
-DATA = '.data'
-RODATA = '.rodata'
-SYMBOLS = '.symtab'
-RELOCATIONS = '.rel.text'
+TEXT = ".text"
+DATA = ".data"
+RODATA = ".rodata"
+SYMBOLS = ".symtab"
+RELOCATIONS = ".rel.text"
 
 COMPRESSED = 0x01
+
+DEBUG_ENABLED = False
+
+
+def debug_print(data):
+    if DEBUG_ENABLED:
+        print(*data)
+
 
 class Symbol(object):
     def __init__(self, location, name, instruction=None):
@@ -27,8 +37,8 @@ class Symbol(object):
         self.name = name
         self.instruction = instruction
 
-class RBF(object):
 
+class RBF(object):
 
     def __init__(self, data, rodata, text, symbols, header=None):
         self.data = data
@@ -39,7 +49,9 @@ class RBF(object):
             self.flags = self.header.flags
         else:
             self.flags = 0
-        self.instructions = instructions.parse_text(self.text, compressed=bool(self.flags & COMPRESSED))
+        self.instructions = instructions.parse_text(
+            self.text, compressed=bool(self.flags & COMPRESSED)
+        )
         self.symbols = symbols
 
         def _round_len(bstr):
@@ -52,13 +64,15 @@ class RBF(object):
         _round_len(self.rodata)
 
         if (len(text) % 8) != 0:
-            logging.error(f"Length of the text is not a whole number of instructions: {len(text)}")
+            logging.error(
+                f"Length of the text is not a whole number of instructions: {len(text)}"
+            )
 
     def _parse_symbols(self, symbols):
         syms = []
         for symbol in symbols:
             rodata_offset = symbol.name_offset
-            name = self.rodata[rodata_offset:].split(b'\00')[0].decode('ascii')
+            name = self.rodata[rodata_offset:].split(b"\00")[0].decode("ascii")
             instruction = self.instruction_by_address(symbol.location_offset)
             syms.append(Symbol(symbol.location_offset, name, instruction))
         return syms
@@ -85,22 +99,25 @@ class RBF(object):
             slice_len = 8 if len(bstr) > 8 else len(bstr)
             line = bstr[:slice_len]
             bstr = bstr[slice_len:]
-            yield "{:>5x}: ".format(addr) + " ".join(map("0x{0:0>2x}".format, line)) + "\n"
+            yield "{:>5x}: ".format(addr) + " ".join(
+                map("0x{0:0>2x}".format, line)
+            ) + "\n"
             addr += 8
 
     def dump(self, compressed=False):
-        print(f"Magic:\t\t{hex(self.header.magic)}\n"
-              f"Version:\t{self.header.version}\n"
-              f"flags:\t{hex(self.flags)}\n"
-              f"Data length:\t{self.header.data_len} B\n"
-              f"RoData length:\t{self.header.rodata_len} B\n"
-              f"Text length:\t{self.header.text_len} B\n"
-              f"No. functions:\t{self.header.functions_len}\n"
-              )
+        print(
+            f"Magic:\t\t{hex(self.header.magic)}\n"
+            f"Version:\t{self.header.version}\n"
+            f"flags:\t{hex(self.flags)}\n"
+            f"Data length:\t{self.header.data_len} B\n"
+            f"RoData length:\t{self.header.rodata_len} B\n"
+            f"Text length:\t{self.header.text_len} B\n"
+            f"No. functions:\t{self.header.functions_len}\n"
+        )
         print("functions:")
         syms = {sym.location: sym for sym in self._parse_symbols(self.symbols)}
         for symbol in syms.values():
-            print(f"\t\"{symbol.name}\": {hex(symbol.location)}")
+            print(f'\t"{symbol.name}": {hex(symbol.location)}')
         print()
 
         print("data:")
@@ -121,8 +138,15 @@ class RBF(object):
 
     def format(self):
         if not self.header:
-            self.header = HEADER(MAGIC, 0, 0, len(self.data), len(self.rodata),
-                                 len(self.text), len(self.symbols))
+            self.header = HEADER(
+                MAGIC,
+                0,
+                0,
+                len(self.data),
+                len(self.rodata),
+                len(self.text),
+                len(self.symbols),
+            )
 
         data = bytearray(HEADER_STRUCT.pack(*self.header))
         data += self.data
@@ -131,18 +155,26 @@ class RBF(object):
         for symbol in self.symbols:
             data += SYMBOL_STRUCT.pack(*symbol)
 
-        print("Data")
+        debug_print("Data")
         for i, b in enumerate(data):
-            print("{:02x}".format(b), end=" ")
+            if DEBUG_ENABLED:
+                print("{:02x}".format(b), end=" ")
             if i % 8 == 7:
-                print()
+                debug_print(())
         return data
 
     def format_compressed(self):
         compressed_text = bytes().join(instr.compress() for instr in self.instructions)
         if not self.header:
-            self.header = HEADER(MAGIC, 0, COMPRESSED, len(self.data), len(self.rodata),
-                                 len(compressed_text), len(self.symbols))
+            self.header = HEADER(
+                MAGIC,
+                0,
+                COMPRESSED,
+                len(self.data),
+                len(self.rodata),
+                len(compressed_text),
+                len(self.symbols),
+            )
         data = bytearray(HEADER_STRUCT.pack(*self.header))
         data += self.data
         data += self.rodata
@@ -150,7 +182,6 @@ class RBF(object):
         for symbol in self.symbols:
             data += SYMBOL_STRUCT.pack(*symbol)
         return data
-
 
     @staticmethod
     def from_rbf(byte_data):
@@ -170,12 +201,9 @@ class RBF(object):
 
         syms_array = []
         while len(syms):
-            syms_array.append(
-                SYMBOL._make(SYMBOL_STRUCT.unpack_from(syms, 0))
-            )
-            syms = syms[SYMBOL_STRUCT.size:]
+            syms_array.append(SYMBOL._make(SYMBOL_STRUCT.unpack_from(syms, 0)))
+            syms = syms[SYMBOL_STRUCT.size :]
         return RBF(data, rodata, text, syms_array, header)
-
 
     @staticmethod
     def _get_section_lddw_opcode(section):
@@ -192,16 +220,16 @@ class RBF(object):
         location = entry.r_offset
         symbols = elffile.get_section_by_name(SYMBOLS)
         for s in symbols.iter_symbols():
-            print(s.name, s.entry.st_info.type)
+            debug_print((s.name, s.entry.st_info.type))
         symbol = symbols.get_symbol(entry.r_info_sym)
-        if symbol.entry.st_info.type == 'STT_SECTION':
+        if symbol.entry.st_info.type == "STT_SECTION":
             # refers to an offset in a section
             section_name = elffile.get_section(symbol.entry.st_shndx).name
             # the rodata.str.1 section gets here
-            print(str_section_offsets)
+            debug_print((str_section_offsets))
             offset = str_section_offsets[section_name]
             pass
-        elif symbol.entry.st_info.type == 'STT_OBJECT':
+        elif symbol.entry.st_info.type == "STT_OBJECT":
             section_name = elffile.get_section(symbol.entry.st_shndx).name
             offset = symbol.entry.st_value
         else:
@@ -211,10 +239,16 @@ class RBF(object):
         if text[location] != instructions.LDDW_OPCODE:
             logging.error(f"No LDDW instruction at {hex(location)}")
         else:
-            instruction = instructions.LDDW._make(instructions.LDDW_STRUCT.unpack_from(text, location))
-            print(f"Replacing {instruction} at {location} with {opcode} at {offset}")
-            logging.info(f"Replacing {instruction} at {location} with {opcode} at {offset}")
-            text[location:location+16] = instructions.LDDW_STRUCT.pack(
+            instruction = instructions.LDDW._make(
+                instructions.LDDW_STRUCT.unpack_from(text, location)
+            )
+            debug_print(
+                (f"Replacing {instruction} at {location} with {opcode} at {offset}",)
+            )
+            logging.debug(
+                f"Replacing {instruction} at {location} with {opcode} at {offset}"
+            )
+            text[location : location + 16] = instructions.LDDW_STRUCT.pack(
                 opcode,
                 instruction.registers,
                 instruction.offset,
@@ -222,9 +256,8 @@ class RBF(object):
                 0,
                 0,
                 0,
-                instruction.immediate_h
+                instruction.immediate_h,
             )
-
 
     @staticmethod
     def from_elf(elf, relocations=True):
@@ -252,52 +285,58 @@ class RBF(object):
         str_section_offsets = {}
         for section in elffile.iter_sections():
             if ".rodata.str" in section.name:
-              print("Read-only string found: ", section.name)
-              print(len(rodata))
-              str_section_offsets[section.name] = len(rodata)
-              rodata += bytearray(section.data())
+                debug_print(("Read-only string found: ", section.name))
+                debug_print((len(rodata),))
+                str_section_offsets[section.name] = len(rodata)
+                rodata += bytearray(section.data())
 
         symbols = elffile.get_section_by_name(SYMBOLS)
 
         rbf_symbols = []
         for symbol in symbols.iter_symbols():
             entry = symbol.entry
-            info = entry['st_info']
-            if info['type'] == 'STT_FUNC' and info['bind'] == 'STB_GLOBAL':
+            info = entry["st_info"]
+            if info["type"] == "STT_FUNC" and info["bind"] == "STB_GLOBAL":
                 name = symbol.name
-                text_offset = entry['st_value']
-                logging.info(f"Found global function {name} at offset {text_offset}")
-                rbf_symbols.append((name, text_offset, 0)) # potential flags
+                text_offset = entry["st_value"]
+                logging.debug(f"Found global function {name} at offset {text_offset}")
+                rbf_symbols.append((name, text_offset, 0))  # potential flags
 
         symbol_structs = []
         logging.debug(f"rodata length: {len(rodata)}")
         for name, text_offset, flags in rbf_symbols:
             offset = len(rodata)
-            rodata += bytes(name, 'UTF-8') + b'\00'
+            rodata += bytes(name, "UTF-8") + b"\00"
             sym_str = SYMBOL(offset, flags, text_offset)
             symbol_structs.append(sym_str)
-            logging.debug(f"symbol {sym_str} generated with {name} and appended at {offset}")
-        logging.info(f"Total rodata size: {len(rodata)}. Total data size: {len(data)}")
+            logging.debug(
+                f"symbol {sym_str} generated with {name} and appended at {offset}"
+            )
+        logging.debug(f"Total rodata size: {len(rodata)}. Total data size: {len(data)}")
 
         if relocations:
             for relocation in relocations.iter_relocations():
                 logging.debug(relocation.entry)
                 entry = relocation.entry
-                symbol = symbols.get_symbol(entry['r_info_sym'])
-                if symbol.entry['st_info']['type'] == 'STT_SECTION':
-                    name = elffile.get_section(symbol.entry['st_shndx']).name
-                    logging.info(f"relocation at instruction {hex(entry['r_offset'])} for section {name} at offset {symbol.entry.st_value}")
+                symbol = symbols.get_symbol(entry["r_info_sym"])
+                if symbol.entry["st_info"]["type"] == "STT_SECTION":
+                    name = elffile.get_section(symbol.entry["st_shndx"]).name
+                    logging.debug(
+                        f"relocation at instruction {hex(entry['r_offset'])} for section {name} at offset {symbol.entry.st_value}"
+                    )
                 else:
                     name = symbol.name
                     section = elffile.get_section(symbol.entry.st_shndx)
-                    logging.info(f"relocation at instruction {hex(entry['r_offset'])} for symbol {name} in {section.name} at {symbol.entry.st_value}")
+                    logging.debug(
+                        f"relocation at instruction {hex(entry['r_offset'])} for symbol {name} in {section.name} at {symbol.entry.st_value}"
+                    )
 
                 RBF._patch_text(text, elffile, relocation, str_section_offsets)
 
-
-        print("Text section")
+        debug_print(("Text section", ))
         for i, b in enumerate(text):
-            print("{:02x}".format(b), end=" ")
+            if DEBUG_ENABLED:
+                print("{:02x}".format(b), end=" ")
             if i % 8 == 7:
-                print()
+                debug_print(())
         return RBF(data=data, rodata=rodata, text=text, symbols=symbol_structs)
