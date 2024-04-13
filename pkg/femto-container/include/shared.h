@@ -18,11 +18,11 @@
 extern "C" {
 #endif
 
-#define __bpf_shared_ptr(type, name)    \
-union {                 \
-    type name;          \
-    uint64_t :64;          \
-} __attribute__((aligned(8)))
+#define __bpf_shared_ptr(type, name)                                           \
+    union {                                                                    \
+        type name;                                                             \
+        uint64_t : 64;                                                         \
+    } __attribute__((aligned(8)))
 
 enum {
     /* Aux helper functions (stdlib) */
@@ -31,6 +31,7 @@ enum {
 
     /* Time(r) functions */
     BPF_FUNC_BPF_NOW_MS = 0x20,
+
 
     /* Saul functions */
     BPF_FUNC_BPF_SAUL_REG_FIND_NTH = 0x30,
@@ -54,9 +55,10 @@ enum {
 
 /* Helper structs */
 typedef struct {
-    __bpf_shared_ptr(void*, pkt);      /**< Opaque pointer to the coap_pkt_t struct */
-    __bpf_shared_ptr(uint8_t*, buf);   /**< Packet buffer */
-    size_t buf_len; /**< Packet buffer length */
+    __bpf_shared_ptr(void *,
+                     pkt); /**< Opaque pointer to the coap_pkt_t struct */
+    __bpf_shared_ptr(uint8_t *, buf); /**< Packet buffer */
+    size_t buf_len;                   /**< Packet buffer length */
 } bpf_coap_ctx_t;
 
 #ifdef __cplusplus

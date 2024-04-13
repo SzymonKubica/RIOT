@@ -92,12 +92,14 @@ typedef struct {
 
 typedef struct f12r_hook f12r_hook_t;
 
+/*
 struct bpf_hook {
     struct f12r_hook *next;
     f12r_t *application;
     uint32_t executions;
     f12r_hook_policy_t policy;
 };
+*/
 
 typedef uint32_t (*f12r_call_t)(f12r_t *fc, uint64_t *regs);
 

@@ -9,6 +9,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdio.h>
 #include "btree.h"
 #include "bpf.h"
 #include "bpf/store.h"
