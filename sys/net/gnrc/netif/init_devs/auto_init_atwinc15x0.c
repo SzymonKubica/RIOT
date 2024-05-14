@@ -59,6 +59,7 @@ void auto_init_atwinc15x0(void)
     for (unsigned i = 0; i < ATWINC15X0_NUM; i++) {
         LOG_DEBUG("[auto_init_netif] initializing atwinc15x0 #%u\n", i);
 
+
         /* setup netdev device */
         atwinc15x0_setup(&dev[i], &atwinc15x0_params[i], i);
         gnrc_netif_ethernet_create(&_netif[i], stack[i],

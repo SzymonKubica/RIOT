@@ -237,11 +237,21 @@ uint32_t f12r_vm_printf(f12r_t *f12r, uint64_t *regs)
                   (uint32_t *)(intptr_t)regs[4], (uint32_t *)(intptr_t)regs[5]);
 }
 
+
+uint32_t f12r_vm_strlen(f12r_t *f12r, uint64_t *regs)
+{
+    (void)f12r;
+
+    return strlen((const char *)(intptr_t)regs[1]);
+}
+
 f12r_call_t f12r_get_external_call(uint32_t num)
 {
     switch (num) {
     case BPF_FUNC_BPF_PRINTF:
         return &f12r_vm_printf;
+    case BPF_FUNC_BPF_STRLEN:
+        return &f12r_vm_strlen;
     case BPF_FUNC_BPF_MEMCPY:
         return &f12r_vm_memcpy;
     case BPF_FUNC_BPF_STORE_LOCAL:

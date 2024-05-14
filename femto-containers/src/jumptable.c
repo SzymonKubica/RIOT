@@ -163,8 +163,6 @@ int f12r_run(f12r_t *femtoc, const void *ctx, int64_t *result)
     uint64_t regmap[11] = { 0 };
     regmap[1] = (uint64_t)(uintptr_t)ctx;
     regmap[10] = (uint64_t)(uintptr_t)(femtoc->stack + femtoc->stack_size);
-
-
     f12r_header_t *header = f12r_header(femtoc);
 
     const bpf_instruction_t *instr = (const bpf_instruction_t*)f12r_text(femtoc);

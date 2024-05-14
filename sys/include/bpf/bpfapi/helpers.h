@@ -40,6 +40,7 @@ do {                                                                           \
 typedef void bpf_saul_reg_t;
 
 static void *(*bpf_printf)(const char *fmt, ...) = (void *) BPF_FUNC_BPF_PRINTF;
+static size_t (*bpf_strlen)(char *str) = (void *)BPF_FUNC_BPF_STRLEN;
 
 static int (*bpf_store_global)(uint32_t key, uint32_t value) = (void *) BPF_FUNC_BPF_STORE_GLOBAL;
 static int (*bpf_store_local)(uint32_t key, uint32_t value) = (void *) BPF_FUNC_BPF_STORE_LOCAL;

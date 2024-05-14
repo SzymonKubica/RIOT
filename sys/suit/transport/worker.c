@@ -74,7 +74,7 @@
 
 /** Maximum size of SUIT manifests processable by the suit_worker mechanisms */
 #ifndef SUIT_MANIFEST_BUFSIZE
-#define SUIT_MANIFEST_BUFSIZE   640
+#define SUIT_MANIFEST_BUFSIZE 640
 #endif
 
 static char _stack[SUIT_WORKER_STACKSIZE];
@@ -91,19 +91,21 @@ int suit_handle_url(const char *url)
     ssize_t size;
     LOG_INFO("suit_worker: downloading \"%s\"\n", url);
 
-    if (0) {}
+    if (0) {
+    }
 #ifdef MODULE_SUIT_TRANSPORT_COAP
     else if ((strncmp(url, "coap://", 7) == 0) ||
-             (IS_USED(MODULE_NANOCOAP_DTLS) && strncmp(url, "coaps://", 8) == 0)) {
-        size = nanocoap_get_blockwise_url_to_buf(url,
-                                                 CONFIG_SUIT_COAP_BLOCKSIZE,
-                                                 _manifest_buf,
-                                                 sizeof(_manifest_buf));
+             (IS_USED(MODULE_NANOCOAP_DTLS) &&
+              strncmp(url, "coaps://", 8) == 0)) {
+        size = nanocoap_get_blockwise_url_to_buf(
+            url, CONFIG_SUIT_COAP_BLOCKSIZE, _manifest_buf,
+            sizeof(_manifest_buf));
     }
 #endif
 #ifdef MODULE_SUIT_TRANSPORT_VFS
     else if (strncmp(url, "file://", 7) == 0) {
-        size = vfs_file_to_buffer(&url[7], _manifest_buf, sizeof(_manifest_buf));
+        size =
+            vfs_file_to_buffer(&url[7], _manifest_buf, sizeof(_manifest_buf));
     }
 #endif
     else {
@@ -146,8 +148,7 @@ int suit_handle_manifest_buf(const uint8_t *buffer, size_t size)
     return res;
 }
 
-__attribute__((weak))
-void suit_worker_done_cb(int res)
+__attribute__((weak)) void suit_worker_done_cb(int res)
 {
     if (res == 0) {
         LOG_INFO("suit_worker: update successful\n");
@@ -155,8 +156,7 @@ void suit_worker_done_cb(int res)
             LOG_INFO("suit_worker: rebooting...\n");
             pm_reboot();
         }
-    }
-    else {
+    } else {
         LOG_INFO("suit_worker: update failed, hdr invalid\n ");
     }
 }
@@ -219,9 +219,9 @@ void suit_worker_trigger(const char *url, size_t len)
     memcpy(_url, url, len);
     _url[len] = '\0';
 
-    _worker_pid = thread_create(_stack, SUIT_WORKER_STACKSIZE, SUIT_COAP_WORKER_PRIO,
-                  THREAD_CREATE_STACKTEST,
-                  _suit_worker_thread, NULL, "suit worker");
+    _worker_pid = thread_create(_stack, SUIT_WORKER_STACKSIZE,
+                                SUIT_COAP_WORKER_PRIO, THREAD_CREATE_STACKTEST,
+                                _suit_worker_thread, NULL, "suit worker");
 }
 
 void suit_worker_trigger_prepared(const uint8_t *buffer, size_t size)
@@ -244,9 +244,9 @@ void suit_worker_trigger_prepared(const uint8_t *buffer, size_t size)
         return;
     }
 
-    _worker_pid = thread_create(_stack, SUIT_WORKER_STACKSIZE, SUIT_COAP_WORKER_PRIO,
-                  THREAD_CREATE_STACKTEST,
-                  _suit_worker_thread, NULL, "suit worker");
+    _worker_pid = thread_create(_stack, SUIT_WORKER_STACKSIZE,
+                                SUIT_COAP_WORKER_PRIO, THREAD_CREATE_STACKTEST,
+                                _suit_worker_thread, NULL, "suit worker");
 }
 
 int suit_worker_try_prepare(uint8_t **buffer, size_t *size)

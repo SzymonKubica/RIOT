@@ -131,6 +131,7 @@ static void _gnrc_netreg_release_exclusive(void) {
 
 int gnrc_netreg_register(gnrc_nettype_t type, gnrc_netreg_entry_t *entry)
 {
+//#if DEVELHELP
 #if DEVELHELP
 # if defined(MODULE_GNRC_NETAPI_MBOX) || defined(MODULE_GNRC_NETAPI_CALLBACKS)
     bool has_msg_q = (entry->type != GNRC_NETREG_TYPE_DEFAULT) ||

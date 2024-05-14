@@ -33,6 +33,7 @@ int main(void)
         puts("[FAILED]");
         return 1;
     }
+    hd44780_right2left(&dev);
     /* clear screen, reset cursor */
     hd44780_clear(&dev);
     hd44780_home(&dev);

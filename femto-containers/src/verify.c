@@ -15,6 +15,7 @@
 #include "femtocontainer/builtin_shared.h"
 #include "femtocontainer/instruction.h"
 #include "femtocontainer/config.h"
+#include "log.h"
 
 static bool _f12r_check_call(uint32_t num)
 {
@@ -31,6 +32,7 @@ int f12r_verify_preflight(f12r_t *femtoc)
     const bpf_instruction_t *application = f12r_text(femtoc);
     size_t length = f12r_text_len(femtoc);
     if (femtoc->flags & FC_FLAG_PREFLIGHT_DONE) {
+        LOG_DEBUG("[f12r_verify_preflight]: Verification marked as done, returning early \n");
         return FC_OK;
     }
 
