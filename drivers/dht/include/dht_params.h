@@ -32,10 +32,10 @@ extern "C" {
  * @{
  */
 #ifndef DHT_PARAM_PIN
-#define DHT_PARAM_PIN               (GPIO_PIN(5, 15))
+#define DHT_PARAM_PIN               (GPIO_PIN(0, 0))
 #endif
 #ifndef DHT_PARAM_TYPE
-#define DHT_PARAM_TYPE              (DHT22)
+#define DHT_PARAM_TYPE              (DHT11)
 #endif
 #ifndef DHT_PARAM_PULL
 #define DHT_PARAM_PULL              (GPIO_IN)
