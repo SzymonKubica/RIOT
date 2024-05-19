@@ -104,6 +104,7 @@ enum {
     UNIT_GS = UNIT_GAUSS, /**< @deprecated, use UNIT_GAUSS instead */
     UNIT_T,         /**< Tesla */
     UNIT_DBM,       /**< decibel-milliwatts */
+    UNIT_DB,       /**< decibel */
     UNIT_COULOMB,   /**< coulomb */
     UNIT_F,         /**< Farad */
     UNIT_OHM,       /**< Ohm */

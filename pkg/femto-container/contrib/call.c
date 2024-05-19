@@ -112,6 +112,19 @@ uint32_t f12r_vm_saul_reg_write(f12r_t *f12r, uint64_t *regs)
     int res = saul_reg_write(dev, data);
     return (uint32_t)res;
 }
+
+uint32_t f12r_vm_saul_read_temp(f12r_t *f12r, uint64_t *regs)
+{
+    (void)f12r;
+
+    saul_reg_t *dev = (saul_reg_t *)(intptr_t)regs[1];
+    uint32_t *result = (uint32_t *)(intptr_t)regs[2];
+
+    phydat_t data;
+    int res = saul_reg_read(dev, &data);
+    *result = data.val[0];
+    return (uint32_t)res;
+}
 #endif
 
 typedef bpf_coap_ctx_t f12r_coap_ctx_t;
@@ -271,6 +284,8 @@ f12r_call_t f12r_get_external_call(uint32_t num)
         return &f12r_vm_saul_reg_read;
     case BPF_FUNC_BPF_SAUL_REG_WRITE:
         return &f12r_vm_saul_reg_write;
+    case BPF_FUNC_BPF_SAUL_READ_TEMP:
+        return &f12r_vm_saul_read_temp;
 #endif
 #ifdef MODULE_GCOAP
     case BPF_FUNC_BPF_GCOAP_RESP_INIT:

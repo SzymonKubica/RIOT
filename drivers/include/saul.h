@@ -117,6 +117,7 @@ enum {
     SAUL_SENSE_ID_TEMP,             /**< sensor: temperature */
     SAUL_SENSE_ID_HUM,              /**< sensor: humidity */
     SAUL_SENSE_ID_LIGHT,            /**< sensor: light */
+    SAUL_SENSE_ID_SOUND,            /**< sensor: sound */
     SAUL_SENSE_ID_ACCEL,            /**< sensor: accelerometer */
     SAUL_SENSE_ID_MAG,              /**< sensor: magnetometer */
     SAUL_SENSE_ID_GYRO,             /**< sensor: gyroscope */
@@ -176,6 +177,8 @@ enum {
     SAUL_SENSE_HUM          = SAUL_CAT_SENSE | SAUL_SENSE_ID_HUM,
     /** sensor: light */
     SAUL_SENSE_LIGHT        = SAUL_CAT_SENSE | SAUL_SENSE_ID_LIGHT,
+    /** sensor: sound */
+    SAUL_SENSE_SOUND        = SAUL_CAT_SENSE | SAUL_SENSE_ID_SOUND,
     /** sensor: accelerometer */
     SAUL_SENSE_ACCEL        = SAUL_CAT_SENSE | SAUL_SENSE_ID_ACCEL,
     /** sensor: magnetometer */

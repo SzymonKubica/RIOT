@@ -32,7 +32,11 @@ extern "C" {
  * @{
  */
 #ifndef DHT_PARAM_PIN
-#define DHT_PARAM_PIN               (GPIO_PIN(0, 0))
+#define DHT_PARAM_PIN               (GPIO_PIN(0, 13))
+//#define DHT_PARAM_PIN               (GPIO_PIN(5, 15))
+#endif
+#ifndef DHT2_PARAM_PIN
+#define DHT2_PARAM_PIN               (GPIO_PIN(0, 14))
 #endif
 #ifndef DHT_PARAM_TYPE
 #define DHT_PARAM_TYPE              (DHT11)
@@ -42,11 +46,15 @@ extern "C" {
 #endif
 #ifndef DHT_PARAMS
 #define DHT_PARAMS                  { .pin     = DHT_PARAM_PIN,  \
-                                      .type    = DHT_PARAM_TYPE, \
-                                      .in_mode = DHT_PARAM_PULL }
+                                      .type    = DHT22, \
+                                      .in_mode = DHT_PARAM_PULL }, \
+                                    { .pin     = DHT2_PARAM_PIN,  \
+                                      .type    = DHT22, \
+                                      .in_mode = DHT_PARAM_PULL }, \
+
 #endif
 #ifndef DHT_SAULINFO
-#define DHT_SAULINFO                { .name = "dht" }
+#define DHT_SAULINFO                { .name = "dht1" }, { .name = "dht2"}
 #endif
 /**@}*/
 

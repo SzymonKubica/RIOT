@@ -24,7 +24,7 @@
 #include "periph/adc.h"
 
 #define RES             ADC_RES_10BIT
-#define DELAY_MS        100U
+#define DELAY_MS        1000U
 
 int main(void)
 {
