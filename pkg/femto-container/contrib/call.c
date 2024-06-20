@@ -65,10 +65,11 @@ uint32_t f12r_vm_memcpy(f12r_t *f12r, uint64_t *regs)
     size_t len = (size_t)regs[3];
 
     uintptr_t result = (uintptr_t)memcpy(dest, src, len);
+    /*
     for (size_t i = 0; i < len; i++) {
         printf("source bytes: %d", ((char *)src)[i]);
         printf("destination bytes: %d", ((char *)dest)[i]);
-    }
+    }*/
     return result;
 }
 

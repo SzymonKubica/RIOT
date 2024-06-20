@@ -227,6 +227,8 @@ class RBF(object):
             section_name = elffile.get_section(symbol.entry.st_shndx).name
             # the rodata.str.1 section gets here
             debug_print((str_section_offsets))
+            if section_name not in str_section_offsets:
+                return
             offset = str_section_offsets[section_name]
             pass
         elif symbol.entry.st_info.type == "STT_OBJECT":
